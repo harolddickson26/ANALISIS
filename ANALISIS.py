@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import pandas as pd
-import duckdb
-import os
+import traceback
 
 app = Flask(__name__)
 app.secret_key = "clave_secreta_super_segura"
@@ -9,7 +8,6 @@ app.secret_key = "clave_secreta_super_segura"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-# Guardar temporalmente el dataframe cargado
 DATA_STORE = {}
 
 @app.route("/")
@@ -61,31 +59,23 @@ def cargar_excel():
                     engine = "openpyxl" if file.filename.endswith(".xlsx") else "xlrd"
                     df = pd.read_excel(file, engine=engine)
                     
-                    # Limpiar nombres de columnas
                     df.columns = [str(col).strip().lower() for col in df.columns]
-                    
-                    # Guardar en almacenamiento de sesión
                     DATA_STORE[session["usuario"]] = df
-                    
                     cols = df.columns.tolist()
 
-                    # Detectar columna de estación/sede
                     col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
                     if col_estacion:
                         estaciones = sorted([str(x) for x in df[col_estacion].dropna().unique().tolist()])
 
-                    # Detectar columna de fecha
                     col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
                     if col_fecha:
                         df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
                         anios = sorted([str(int(x)) for x in df[col_fecha].dt.year.dropna().unique().tolist()], reverse=True)
 
-                    # Detectar columna de monto/ventas
                     num_cols = df.select_dtypes(include=['number']).columns.tolist()
                     col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe'])), num_cols[-1] if num_cols else None)
 
                     if not col_monto:
-                        # Intentar convertir columnas que puedan tener texto con numeros
                         for col in cols:
                             try:
                                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -96,7 +86,7 @@ def cargar_excel():
                                 pass
 
                     if not col_monto:
-                        raise Exception("No se encontró ninguna columna numérica para realizar las sumas.")
+                        raise Exception("No se encontró ninguna columna numérica para calcular los totales.")
 
                     total_v = float(df[col_monto].sum())
                     total_r = len(df)
@@ -113,7 +103,16 @@ def cargar_excel():
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
-    return render_template("cargar_excel.html", error=error, kpis=kpis, estaciones=estaciones, anios=anios)
+    try:
+        return render_template(
+            "cargar_excel.html", 
+            error=error, 
+            kpis=kpis or {}, 
+            estaciones=estaciones or [], 
+            anios=anios or []
+        )
+    except Exception as e:
+        return f"<h3>Error en plantilla HTML:</h3><pre>{traceback.format_exc()}</pre>", 500
 
 # --- API DE FILTRADO PARA DESPLEGABLES ---
 @app.route("/api/filtrar-analisis", methods=["POST"])
@@ -131,7 +130,6 @@ def filtrar_analisis():
     col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
     col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
 
-    # Filtrado
     if col_estacion and estacion_sel and estacion_sel != 'Todas':
         df = df[df[col_estacion].astype(str) == str(estacion_sel)]
         
@@ -149,14 +147,12 @@ def filtrar_analisis():
     total_r = len(df)
     prom = total_v / total_r if total_r > 0 else 0.0
 
-    # Agrupar por producto
     labels_prod, valores_prod = [], []
     if col_prod in df and col_monto in df:
         grp_prod = df.groupby(col_prod)[col_monto].sum().head(5)
         labels_prod = [str(x) for x in grp_prod.index.tolist()]
         valores_prod = [float(x) for x in grp_prod.values.tolist()]
 
-    # Agrupar por mes
     labels_mes, valores_mes = [], []
     if col_fecha in df and col_monto in df:
         df['mes_str'] = df[col_fecha].dt.strftime('%m-%b')
