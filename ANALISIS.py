@@ -1,19 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, session
+import pandas as pd
+import os
 
 app = Flask(__name__)
-# Clave secreta requerida por Flask para manejar sesiones seguras
 app.secret_key = "clave_secreta_super_segura"
 
-# Credenciales de prueba
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
 @app.route("/")
 def inicio():
-    # Si el usuario ya inició sesión, muestra la página principal
     if "usuario" in session:
         return render_template("index.html", usuario=session["usuario"])
-    # Si no ha iniciado sesión, redirige al login
     return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"])
@@ -36,37 +34,33 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# --- RUTAS DE LAS SECCIONES DEL MENÚ ---
+# --- RUTA PARA SUBIR Y LEER EXCEL ---
 
-@app.route("/inventario")
-def inventario():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Inventario", contenido="Gestión e historial del inventario de productos.")
+@app.route("/cargar-excel", methods=["GET", "POST"])
+def cargar_excel():
+    if "usuario" not in session: 
+        return redirect(url_for("login"))
+    
+    tabla_html = None
+    error = None
 
-@app.route("/ingresar-entrada")
-def ingresar_entrada():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Ingresar Entrada", contenido="Registro de nuevas entradas de mercancía.")
+    if request.method == "POST":
+        if "archivo_excel" not in request.files:
+            error = "No se seleccionó ningún archivo."
+        else:
+            file = request.files["archivo_excel"]
+            if file.filename == "":
+                error = "Nombre de archivo no válido."
+            elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
+                try:
+                    df = pd.read_excel(file)
+                    tabla_html = df.to_html(classes="tabla-excel", index=False)
+                except Exception as e:
+                    error = f"Error al procesar el archivo Excel: {str(e)}"
+            else:
+                error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
-@app.route("/ingresar-venta")
-def ingresar_venta():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Ingresar Venta", contenido="Registro de nuevas ventas.")
-
-@app.route("/utilidad")
-def utilidad():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Utilidad", contenido="Reporte de ganancias y utilidades.")
-
-@app.route("/total-ventas")
-def total_ventas():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Total Ventas", contenido="Resumen total del volumen de ventas.")
-
-@app.route("/total-entradas")
-def total_entradas():
-    if "usuario" not in session: return redirect(url_for("login"))
-    return render_template("seccion.html", titulo="Total Entradas", contenido="Resumen total de las entradas registradas.")
+    return render_template("cargar_excel.html", tabla_html=tabla_html, error=error)
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargar Excel - Análisis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 30px;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: auto;
+        }
+        .btn-submit {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-submit:hover { background-color: #219150; }
+        .btn-back {
+            display: inline-block;
+            margin-top: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .error { color: #e74c3c; font-weight: bold; }
+        /* Estilos para la tabla cargada desde Pandas */
+        .tabla-contenedor {
+            overflow-x: auto;
+            margin-top: 25px;
+        }
+        .tabla-excel {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .tabla-excel th, .tabla-excel td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .tabla-excel th {
+            background-color: #34495e;
+            color: white;
+        }
+        .tabla-excel tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📊 Cargar y Visualizar Archivo Excel</h2>
+        
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="archivo_excel" accept=".xlsx, .xls" required>
+            <button type="submit" class="btn-submit">Cargar Archivo</button>
+        </form>
+
+        {% if tabla_html %}
+            <h3>Contenido del Archivo:</h3>
+            <div class="tabla-contenedor">
+                {{ tabla_html | safe }}
+            </div>
+        {% endif %}
+
+        <br>
+        <a href="/" class="btn-back">⬅ Volver al Menú Principal</a>
+    </div>
+</body>
+</html>
