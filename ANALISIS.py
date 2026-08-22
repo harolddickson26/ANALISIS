@@ -9,7 +9,6 @@ app.secret_key = "clave_secreta_super_segura"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-# Variable global para mantener el DataFrame en sesión/memoria durante el análisis
 df_global = None
 
 @app.route("/")
@@ -62,25 +61,32 @@ def cargar_excel():
                     engine = "openpyxl" if file.filename.endswith(".xlsx") else "xlrd"
                     df_global = pd.read_excel(file, engine=engine)
                     
-                    # Normalizar nombres de columnas a minúsculas para consultas DuckDB limpias
+                    # Limpiar nombres de columnas
                     df_global.columns = [str(col).strip().lower() for col in df_global.columns]
                     
-                    # Consulta inicial de listas desplegables con DuckDB
                     con = duckdb.connect(database=':memory:')
                     con.register('datos', df_global)
                     
-                    # Extraer estaciones únicas (si existe la columna 'estacion' o similar)
                     cols = df_global.columns.tolist()
-                    if 'estacion' in cols:
-                        estaciones = [r[0] for r in con.execute("SELECT DISTINCT estacion FROM datos WHERE estacion IS NOT NULL").fetchall()]
-                    
-                    # Extraer años únicos si existe columna de fecha
-                    if 'fecha' in cols:
-                        anios = [r[0] for r in con.execute("SELECT DISTINCT YEAR(CAST(fecha AS DATE)) FROM datos WHERE fecha IS NOT NULL ORDER BY 1 DESC").fetchall()]
-                    
-                    # KPIs iniciales
-                    col_monto = 'monto' if 'monto' in cols else ('venta' if 'venta' in cols else cols[-1])
-                    total_v = con.execute(f"SELECT SUM({col_monto}) FROM datos").fetchone()[0] or 0
+
+                    # Buscar columna de estación/sede
+                    col_estacion = next((c for c in cols if 'estacion' in c or 'sede' in c or 'zona' in c), None)
+                    if col_estacion:
+                        estaciones = [r[0] for r in con.execute(f"SELECT DISTINCT {col_estacion} FROM datos WHERE {col_estacion} IS NOT NULL").fetchall()]
+
+                    # Buscar columna de fecha
+                    col_fecha = next((c for c in cols if 'fecha' in c or 'date' in c), None)
+                    if col_fecha:
+                        anios = [r[0] for r in con.execute(f"SELECT DISTINCT YEAR(CAST({col_fecha} AS DATE)) FROM datos WHERE {col_fecha} IS NOT NULL ORDER BY 1 DESC").fetchall()]
+
+                    # Buscar columna NUMÉRICA para el SUM (excluyendo fechas e identificadores)
+                    num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
+                    col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else None)
+
+                    if not col_monto:
+                        raise Exception("No se encontró ninguna columna numérica para calcular el total.")
+
+                    total_v = con.execute(f"SELECT COALESCE(SUM({col_monto}), 0) FROM datos").fetchone()[0]
                     total_r = len(df_global)
                     prom = total_v / total_r if total_r > 0 else 0
                     
@@ -97,7 +103,7 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error, kpis=kpis, estaciones=estaciones, anios=anios)
 
-# --- API PARA FILTRAR DESDE LAS LISTAS DESPLEGABLES ---
+# --- API DE FILTRADO PARA DESPLEGABLES ---
 @app.route("/api/filtrar-analisis", methods=["POST"])
 def filtrar_analisis():
     global df_global
@@ -112,28 +118,32 @@ def filtrar_analisis():
     con.register('datos', df_global)
     cols = df_global.columns.tolist()
 
+    col_estacion = next((c for c in cols if 'estacion' in c or 'sede' in c or 'zona' in c), None)
+    col_fecha = next((c for c in cols if 'fecha' in c or 'date' in c), None)
+
     condiciones = []
-    if 'estacion' in cols and estacion_sel and estacion_sel != 'Todas':
-        condiciones.append(f"estacion = '{estacion_sel}'")
-    if 'fecha' in cols and anio_sel and anio_sel != 'Todos':
-        condiciones.append(f"YEAR(CAST(fecha AS DATE)) = {anio_sel}")
+    if col_estacion and estacion_sel and estacion_sel != 'Todas':
+        condiciones.append(f"{col_estacion} = '{estacion_sel}'")
+    if col_fecha and anio_sel and anio_sel != 'Todos':
+        condiciones.append(f"YEAR(CAST({col_fecha} AS DATE)) = {anio_sel}")
 
     where_clause = " WHERE " + " AND ".join(condiciones) if condiciones else ""
 
-    col_monto = 'monto' if 'monto' in cols else ('venta' if 'venta' in cols else cols[-1])
-    col_prod = 'producto' if 'producto' in cols else ('categoria' if 'categoria' in cols else cols[0])
+    # Determinar columna de monto y producto
+    num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
+    col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else cols[0])
+    
+    text_cols = df_global.select_dtypes(include=['object']).columns.tolist()
+    col_prod = next((c for c in text_cols if 'producto' in c or 'categoria' in c or 'descripcion' in c), text_cols[0] if text_cols else cols[0])
 
-    # Consultas filtradas
     total_v = con.execute(f"SELECT COALESCE(SUM({col_monto}), 0) FROM datos {where_clause}").fetchone()[0]
     total_r = con.execute(f"SELECT COUNT(*) FROM datos {where_clause}").fetchone()[0]
     prom = total_v / total_r if total_r > 0 else 0
 
-    # Datos Gráfico de Dona
     res_prod = con.execute(f"SELECT {col_prod}, SUM({col_monto}) FROM datos {where_clause} GROUP BY {col_prod} LIMIT 5").fetchall()
     
-    # Datos Gráfico de Líneas (Tendencia)
-    if 'fecha' in cols:
-        res_mes = con.execute(f"SELECT STRFTIME(CAST(fecha AS DATE), '%m-%b'), SUM({col_monto}) FROM datos {where_clause} GROUP BY 1 ORDER BY 1").fetchall()
+    if col_fecha:
+        res_mes = con.execute(f"SELECT STRFTIME(CAST({col_fecha} AS DATE), '%m-%b'), SUM({col_monto}) FROM datos {where_clause} GROUP BY 1 ORDER BY 1").fetchall()
     else:
         res_mes = []
 
@@ -141,9 +151,9 @@ def filtrar_analisis():
         'kpi_total': f"${total_v:,.2f}",
         'kpi_remisiones': f"{total_r:,}",
         'kpi_promedio': f"${prom:,.2f}",
-        'labels_prod': [r[0] for r in res_prod],
+        'labels_prod': [str(r[0]) for r in res_prod],
         'valores_prod': [r[1] for r in res_prod],
-        'labels_mes': [r[0] for r in res_mes],
+        'labels_mes': [str(r[0]) for r in res_mes],
         'valores_mes': [r[1] for r in res_mes]
     })
 
