@@ -1,188 +1,66 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Dashboard Interactivo - Análisis</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --primary-purple: #6b1d80;
-            --dark-purple: #4b1259;
-            --bg-light: #f4f6f9;
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let chartMeses = null;
+
+const ctxMeses = document.getElementById('chartMeses').getContext('2d');
+
+// Datos iniciales desde Flask
+const initialLabelsMes = {{ labels_mes|tojson }};
+const initialValoresMes = {{ valores_mes|tojson }};
+
+function renderChartMeses(labels, data) {
+    if (chartMeses) chartMeses.destroy();
+
+    chartMeses = new Chart(ctxMeses, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ventas ($)',
+                data: data,
+                borderColor: '#6f42c1',
+                backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true }
+            }
         }
+    });
+}
 
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-light); margin: 0; padding: 20px; }
+// Cargar gráfico inicial
+if (initialLabelsMes.length > 0) {
+    renderChartMeses(initialLabelsMes, initialValoresMes);
+}
 
-        .header-banner {
-            background: linear-gradient(135deg, var(--dark-purple), var(--primary-purple));
-            color: white; padding: 15px 20px; border-radius: 8px;
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-        }
-
-        .filter-bar {
-            background: white; padding: 15px 20px; border-radius: 8px;
-            display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
-            border-left: 5px solid var(--primary-purple); box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .filter-group { display: flex; flex-direction: column; gap: 5px; }
-        .filter-group label { font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase; }
-        .filter-group select {
-            padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; font-weight: 600; outline: none;
-        }
-
-        .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        .kpi-card {
-            background: white; padding: 15px; border-radius: 8px; text-align: center;
-            border-top: 4px solid var(--primary-purple); box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .kpi-card small { font-size: 11px; text-transform: uppercase; color: #777; font-weight: bold; }
-        .kpi-card h3 { margin: 5px 0 0 0; color: var(--dark-purple); font-size: 22px; }
-
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .chart-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .chart-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 10px; text-transform: uppercase; }
-    </style>
-</head>
-<body>
-
-    <div class="header-banner">
-        <div>
-            <h2 style="margin:0; text-transform:uppercase;">📊 Panel de Control Interactivo</h2>
-            <small>Análisis Operativo y de Ventas</small>
-        </div>
-        <form method="POST" enctype="multipart/form-data" style="display:flex; gap:10px;">
-            <input type="file" name="archivo_excel" accept=".xlsx, .xls" required style="color:white;">
-            <button type="submit" style="background:#00d2ff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">Cargar Datos</button>
-        </form>
-    </div>
-
-    {% if error %}
-        <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-            {{ error }}
-        </div>
-    {% endif %}
-
-    {% if kpis and kpis.total_ventas %}
-    <!-- PANEL DE FILTROS DESPLEGABLES -->
-    <div class="filter-bar">
-        <div class="filter-group">
-            <label>Filtrar por Estación / Sede:</label>
-            <select id="selectEstacion" onchange="aplicarFiltros()">
-                <option value="Todas">Todas las Estaciones</option>
-                {% for est in estaciones %}
-                    <option value="{{ est }}">{{ est }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="filter-group">
-            <label>Filtrar por Año:</label>
-            <select id="selectAnio" onchange="aplicarFiltros()">
-                <option value="Todos">Todos los Años</option>
-                {% for anio in anios %}
-                    <option value="{{ anio }}">{{ anio }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </div>
-
-    <!-- TARJETAS DE INDICADORES (KPIs) -->
-    <div class="kpi-row">
-        <div class="kpi-card">
-            <small>Ventas Totales</small>
-            <h3 id="txtKpiTotal">{{ kpis.total_ventas }}</h3>
-        </div>
-        <div class="kpi-card">
-            <small>Total Registros</small>
-            <h3 id="txtKpiRemisiones">{{ kpis.total_remisiones }}</h3>
-        </div>
-        <div class="kpi-card">
-            <small>Promedio por Operación</small>
-            <h3 id="txtKpiPromedio">{{ kpis.promedio_venta }}</h3>
-        </div>
-    </div>
-
-    <!-- SECCIÓN DE GRÁFICOS -->
-    <div class="charts-grid">
-        <div class="chart-box">
-            <div class="chart-title">Distribución por Categoria / Producto</div>
-            <canvas id="chartDona"></canvas>
-        </div>
-        <div class="chart-box">
-            <div class="chart-title">Tendencia Mensual</div>
-            <canvas id="chartLineas"></canvas>
-        </div>
-    </div>
-
-    <script>
-        let chartDona, chartLineas;
-
-        function inicializarGraficos() {
-            const elemDona = document.getElementById('chartDona');
-            const elemLineas = document.getElementById('chartLineas');
-
-            if (!elemDona || !elemLineas) return;
-
-            const ctxD = elemDona.getContext('2d');
-            chartDona = new Chart(ctxD, {
-                type: 'doughnut',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: ['#4b1259', '#6b1d80', '#9b59b6', '#3498db', '#2ecc71']
-                    }]
-                }
-            });
-
-            const ctxL = elemLineas.getContext('2d');
-            chartLineas = new Chart(ctxL, {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Ventas ($)',
-                        data: [],
-                        borderColor: '#6b1d80',
-                        backgroundColor: 'rgba(107, 29, 128, 0.15)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                }
-            });
-
-            aplicarFiltros();
-        }
-
-        function aplicarFiltros() {
-            const estacion = document.getElementById('selectEstacion').value;
-            const anio = document.getElementById('selectAnio').value;
-
-            fetch('/api/filtrar-analisis', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ estacion: estacion, anio: anio })
+// Actualizar gráfico en cada cambio de filtro
+document.querySelectorAll('#selectEstacion, #selectAnio, #selectProducto').forEach(select => {
+    select.addEventListener('change', function() {
+        fetch('/api/filtrar-analisis', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                estacion: document.getElementById('selectEstacion').value,
+                anio: document.getElementById('selectAnio').value,
+                producto: document.getElementById('selectProducto').value
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) return;
-                document.getElementById('txtKpiTotal').innerText = data.kpi_total;
-                document.getElementById('txtKpiRemisiones').innerText = data.kpi_remisiones;
-                document.getElementById('txtKpiPromedio').innerText = data.kpi_promedio;
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('kpiTotal').innerText = data.kpi_total;
+            document.getElementById('kpiRemisiones').innerText = data.kpi_remisiones;
+            document.getElementById('kpiPromedio').innerText = data.kpi_promedio;
 
-                chartDona.data.labels = data.labels_prod;
-                chartDona.data.datasets[0].data = data.valores_prod;
-                chartDona.update();
-
-                chartLineas.data.labels = data.labels_mes;
-                chartLineas.data.datasets[0].data = data.valores_mes;
-                chartLineas.update();
-            });
-        }
-
-        window.onload = inicializarGraficos;
-    </script>
-    {% endif %}
-
-</body>
-</html>
+            renderChartMeses(data.labels_mes, data.valores_mes);
+        });
+    });
+});
+</script>

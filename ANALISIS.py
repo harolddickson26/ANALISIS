@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import pandas as pd
 import duckdb
-import traceback
 
 app = Flask(__name__)
 app.secret_key = "clave_secreta_analisis_app"
@@ -37,7 +36,6 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# --- RUTA PARA SUBIR Y ANALIZAR EXCEL ---
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -47,6 +45,9 @@ def cargar_excel():
     kpis = {}
     estaciones = []
     anios = []
+    productos = []
+    labels_mes, valores_mes = [], []
+    labels_prod, valores_prod = [], []
 
     if request.method == "POST":
         if "archivo_excel" not in request.files:
@@ -57,13 +58,11 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    # Lectura ultrarrápida con calamine para evitar consumo de memoria RAM
                     if file.filename.endswith(".xlsx"):
                         df = pd.read_excel(file, engine="calamine")
                     else:
                         df = pd.read_excel(file, engine="xlrd")
                     
-                    # Limpiar nombres de columnas
                     df.columns = [str(col).strip().lower() for col in df.columns]
                     
                     user_key = session.get("usuario", "DICKSON")
@@ -71,32 +70,27 @@ def cargar_excel():
                     
                     cols = df.columns.tolist()
 
-                    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
+                    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'estación', 'eds', 'sede', 'zona', 'centro', 'local', 'punto', 'cliente'])), None)
                     if col_estacion:
-                        estaciones = sorted([str(x) for x in df[col_estacion].dropna().unique().tolist()])
+                        estaciones = sorted([str(x) for x in df[col_estacion].dropna().unique().tolist() if str(x).strip() != ''])
 
-                    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
+                    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia', 'día', 'fec'])), None)
                     if col_fecha:
                         df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
                         anios = sorted([str(int(x)) for x in df[col_fecha].dt.year.dropna().unique().tolist()], reverse=True)
 
-                    num_cols = df.select_dtypes(include=['number']).columns.tolist()
-                    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe'])), num_cols[-1] if num_cols else None)
+                    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+                    col_prod = next((c for c in text_cols if any(k in c for k in ['producto', 'categoria', 'categoría', 'descripcion', 'descripción', 'item', 'artículo', 'articulo'])), None)
+                    if col_prod:
+                        productos = sorted([str(x) for x in df[col_prod].dropna().unique().tolist() if str(x).strip() != ''])
 
-                    if not col_monto:
-                        for col in cols:
-                            try:
-                                df[col] = pd.to_numeric(df[col], errors='coerce')
-                                if df[col].notna().sum() > 0:
-                                    col_monto = col
-                                    break
-                            except:
-                                pass
+                    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+                    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe', 'neto'])), num_cols[-1] if num_cols else None)
 
                     if not col_monto:
                         raise Exception("No se encontró ninguna columna numérica para realizar los cálculos.")
 
-                    # Consultas en memoria mediante DuckDB
+                    # KPIs Iniciales
                     res = duckdb.query(f"SELECT SUM({col_monto}) as total_v, COUNT(*) as total_r FROM df").fetchone()
                     total_v = float(res[0]) if res[0] is not None else 0.0
                     total_r = int(res[1]) if res[1] is not None else 0
@@ -108,6 +102,21 @@ def cargar_excel():
                         'promedio_venta': f"${prom:,.2f}"
                     }
 
+                    # Gráfico por Meses
+                    if col_fecha and col_fecha in df and col_monto in df:
+                        df_mes = df.dropna(subset=[col_fecha]).copy()
+                        df_mes['mes_num'] = df_mes[col_fecha].dt.month
+                        df_mes['mes_nombre'] = df_mes[col_fecha].dt.strftime('%b')
+                        grp_mes = df_mes.groupby(['mes_num', 'mes_nombre'])[col_monto].sum().reset_index().sort_values('mes_num')
+                        labels_mes = grp_mes['mes_nombre'].tolist()
+                        valores_mes = grp_mes[col_monto].tolist()
+
+                    # Gráfico por Productos
+                    if col_prod and col_prod in df and col_monto in df:
+                        grp_p = df.groupby(col_prod)[col_monto].sum().head(5)
+                        labels_prod = [str(x) for x in grp_p.index.tolist()]
+                        valores_prod = [float(x) for x in grp_p.values.tolist()]
+
                 except Exception as e:
                     error = f"Error al procesar el archivo Excel: {str(e)}"
             else:
@@ -118,10 +127,14 @@ def cargar_excel():
         error=error, 
         kpis=kpis, 
         estaciones=estaciones, 
-        anios=anios
+        anios=anios,
+        productos=productos,
+        labels_mes=labels_mes,
+        valores_mes=valores_mes,
+        labels_prod=labels_prod,
+        valores_prod=valores_prod
     )
 
-# --- API DE FILTRADO PARA DESPLEGABLES ---
 @app.route("/api/filtrar-analisis", methods=["POST"])
 def filtrar_analisis():
     user = session.get("usuario", "DICKSON")
@@ -132,42 +145,47 @@ def filtrar_analisis():
     data = request.get_json() or {}
     estacion_sel = data.get('estacion')
     anio_sel = data.get('anio')
+    prod_sel = data.get('producto')
 
     cols = df.columns.tolist()
-    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
-    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
+    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'estación', 'eds', 'sede', 'zona', 'centro', 'local', 'punto', 'cliente'])), None)
+    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia', 'día', 'fec'])), None)
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    col_prod = next((c for c in text_cols if any(k in c for k in ['producto', 'categoria', 'categoría', 'descripcion', 'descripción', 'item', 'artículo', 'articulo'])), None)
 
     query = "SELECT * FROM df WHERE 1=1"
-    if col_estacion and estacion_sel and estacion_sel != 'Todas':
+    if col_estacion and estacion_sel and estacion_sel not in ['Todas', 'Todas las Estaciones']:
         query += f" AND CAST({col_estacion} AS VARCHAR) = '{estacion_sel}'"
         
-    if col_fecha and anio_sel and anio_sel != 'Todos':
+    if col_fecha and anio_sel and anio_sel not in ['Todos', 'Todos los Años']:
         query += f" AND STRFTIME({col_fecha}, '%Y') = '{anio_sel}'"
+
+    if col_prod and prod_sel and prod_sel not in ['Todos', 'Todos los Productos']:
+        query += f" AND CAST({col_prod} AS VARCHAR) = '{prod_sel}'"
 
     df_filtered = duckdb.query(query).df()
 
     num_cols = df_filtered.select_dtypes(include=['number']).columns.tolist()
-    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe'])), num_cols[-1] if num_cols else cols[0])
-    
-    text_cols = df_filtered.select_dtypes(include=['object']).columns.tolist()
-    col_prod = next((c for c in text_cols if any(k in c for k in ['producto', 'categoria', 'descripcion', 'item'])), text_cols[0] if text_cols else cols[0])
+    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe', 'neto'])), num_cols[-1] if num_cols else cols[0])
 
     total_v = float(df_filtered[col_monto].sum()) if col_monto in df_filtered else 0.0
     total_r = len(df_filtered)
     prom = total_v / total_r if total_r > 0 else 0.0
 
-    labels_prod, valores_prod = [], []
-    if col_prod in df_filtered and col_monto in df_filtered:
-        grp_prod = df_filtered.groupby(col_prod)[col_monto].sum().head(5)
-        labels_prod = [str(x) for x in grp_prod.index.tolist()]
-        valores_prod = [float(x) for x in grp_prod.values.tolist()]
-
     labels_mes, valores_mes = [], []
-    if col_fecha in df_filtered and col_monto in df_filtered:
-        df_filtered['mes_str'] = pd.to_datetime(df_filtered[col_fecha]).dt.strftime('%m-%b')
-        grp_mes = df_filtered.groupby('mes_str')[col_monto].sum()
-        labels_mes = [str(x) for x in grp_mes.index.tolist()]
-        valores_mes = [float(x) for x in grp_mes.values.tolist()]
+    if col_fecha and col_fecha in df_filtered and col_monto in df_filtered:
+        df_mes = df_filtered.dropna(subset=[col_fecha]).copy()
+        df_mes['mes_num'] = pd.to_datetime(df_mes[col_fecha]).dt.month
+        df_mes['mes_nombre'] = pd.to_datetime(df_mes[col_fecha]).dt.strftime('%b')
+        grp_mes = df_mes.groupby(['mes_num', 'mes_nombre'])[col_monto].sum().reset_index().sort_values('mes_num')
+        labels_mes = grp_mes['mes_nombre'].tolist()
+        valores_mes = grp_mes[col_monto].tolist()
+
+    labels_prod, valores_prod = [], []
+    if col_prod and col_prod in df_filtered and col_monto in df_filtered:
+        grp_p = df_filtered.groupby(col_prod)[col_monto].sum().head(5)
+        labels_prod = [str(x) for x in grp_p.index.tolist()]
+        valores_prod = [float(x) for x in grp_p.values.tolist()]
 
     return jsonify({
         'kpi_total': f"${total_v:,.2f}",
