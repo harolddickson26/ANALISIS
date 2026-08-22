@@ -1,17 +1,124 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Control Interactivo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar-custom { background-color: #581870; color: white; }
+        .card-custom { border-radius: 10px; border: 1px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .kpi-title { font-size: 0.8rem; font-weight: bold; color: #6c757d; text-transform: uppercase; }
+        .kpi-value { font-size: 1.8rem; font-weight: bold; color: #581870; }
+    </style>
+</head>
+<body>
+
+<div class="navbar-custom p-3 mb-4">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="m-0 fw-bold">📊 PANEL DE CONTROL INTERACTIVO</h4>
+            <small>Análisis Operativo y de Ventas</small>
+        </div>
+        <form action="/cargar-excel" method="POST" enctype="multipart/form-data" class="d-flex align-items-center">
+            <input type="file" name="archivo_excel" class="form-control form-control-sm me-2" required>
+            <button type="submit" class="btn btn-info text-white fw-bold btn-sm">Cargar Datos</button>
+        </form>
+    </div>
+</div>
+
+<div class="container-fluid px-4">
+    {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <!-- FILTROS -->
+    <div class="card card-custom p-3 mb-4 bg-white">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label fw-bold small text-muted">FILTRAR POR ESTACIÓN / SEDE:</label>
+                <select id="selectEstacion" class="form-select form-select-sm">
+                    <option value="Todas">Todas las Estaciones</option>
+                    {% for est in estaciones %}
+                        <option value="{{ est }}">{{ est }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold small text-muted">FILTRAR POR AÑO:</label>
+                <select id="selectAnio" class="form-select form-select-sm">
+                    <option value="Todos">Todos los Años</option>
+                    {% for anio in anios %}
+                        <option value="{{ anio }}">{{ anio }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold small text-muted">FILTRAR POR PRODUCTO:</label>
+                <select id="selectProducto" class="form-select form-select-sm">
+                    <option value="Todos">Todos los Productos</option>
+                    {% for prod in productos %}
+                        <option value="{{ prod }}">{{ prod }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE KPIS -->
+    <div class="row text-center mb-4">
+        <div class="col-md-4">
+            <div class="card card-custom p-3 bg-white">
+                <div class="kpi-title">Ventas Totales</div>
+                <div class="kpi-value" id="kpiTotal">{{ kpis.total_ventas if kpis else '$0.00' }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-custom p-3 bg-white">
+                <div class="kpi-title">Total Registros</div>
+                <div class="kpi-value" id="kpiRemisiones">{{ kpis.total_remisiones if kpis else '0' }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card card-custom p-3 bg-white">
+                <div class="kpi-title">Promedio por Operación</div>
+                <div class="kpi-value" id="kpiPromedio">{{ kpis.promedio_venta if kpis else '$0.00' }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card card-custom p-3 bg-white h-100">
+                <h6 class="fw-bold text-muted mb-3">DISTRIBUCIÓN POR CATEGORÍA / PRODUCTO</h6>
+                <canvas id="chartProductos"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card card-custom p-3 bg-white h-100">
+                <h6 class="fw-bold text-muted mb-3">TENDENCIA MENSUAL</h6>
+                <canvas id="chartMeses"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 let chartMeses = null;
+let chartProductos = null;
 
 const ctxMeses = document.getElementById('chartMeses').getContext('2d');
+const ctxProductos = document.getElementById('chartProductos').getContext('2d');
 
-// Datos iniciales desde Flask
-const initialLabelsMes = {{ labels_mes|tojson }};
-const initialValoresMes = {{ valores_mes|tojson }};
+const initialLabelsMes = {{ labels_mes | default([]) | tojson }};
+const initialValoresMes = {{ valores_mes | default([]) | tojson }};
+const initialLabelsProd = {{ labels_prod | default([]) | tojson }};
+const initialValoresProd = {{ valores_prod | default([]) | tojson }};
 
 function renderChartMeses(labels, data) {
     if (chartMeses) chartMeses.destroy();
-
     chartMeses = new Chart(ctxMeses, {
         type: 'line',
         data: {
@@ -19,29 +126,35 @@ function renderChartMeses(labels, data) {
             datasets: [{
                 label: 'Ventas ($)',
                 data: data,
-                borderColor: '#6f42c1',
-                backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                borderColor: '#581870',
+                backgroundColor: 'rgba(88, 24, 112, 0.1)',
                 fill: true,
                 tension: 0.3,
                 pointRadius: 4
             }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
+        options: { responsive: true, plugins: { legend: { display: false } } }
     });
 }
 
-// Cargar gráfico inicial
-if (initialLabelsMes.length > 0) {
-    renderChartMeses(initialLabelsMes, initialValoresMes);
+function renderChartProductos(labels, data) {
+    if (chartProductos) chartProductos.destroy();
+    chartProductos = new Chart(ctxProductos, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: ['#3b114d', '#581870', '#8c31a6', '#0099ff', '#00cc66']
+            }]
+        },
+        options: { responsive: true }
+    });
 }
 
-// Actualizar gráfico en cada cambio de filtro
+if (initialLabelsMes.length > 0) renderChartMeses(initialLabelsMes, initialValoresMes);
+if (initialLabelsProd.length > 0) renderChartProductos(initialLabelsProd, initialValoresProd);
+
 document.querySelectorAll('#selectEstacion, #selectAnio, #selectProducto').forEach(select => {
     select.addEventListener('change', function() {
         fetch('/api/filtrar-analisis', {
@@ -60,7 +173,11 @@ document.querySelectorAll('#selectEstacion, #selectAnio, #selectProducto').forEa
             document.getElementById('kpiPromedio').innerText = data.kpi_promedio;
 
             renderChartMeses(data.labels_mes, data.valores_mes);
+            renderChartProductos(data.labels_prod, data.valores_prod);
         });
     });
 });
 </script>
+
+</body>
+</html>

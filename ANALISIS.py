@@ -13,7 +13,7 @@ DATA_STORE = {}
 @app.route("/")
 def inicio():
     if session.get("usuario"):
-        return render_template("index.html", usuario=session["usuario"])
+        return redirect(url_for("cargar_excel"))
     return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"])
@@ -25,7 +25,7 @@ def login():
 
         if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
             session["usuario"] = usuario_ingresado
-            return redirect(url_for("inicio"))
+            return redirect(url_for("cargar_excel"))
         else:
             error = "Usuario o contraseña incorrectos."
     
@@ -42,7 +42,7 @@ def cargar_excel():
         return redirect(url_for("login"))
     
     error = None
-    kpis = {}
+    kpis = {'total_ventas': '$0.00', 'total_remisiones': '0', 'promedio_venta': '$0.00'}
     estaciones = []
     anios = []
     productos = []
@@ -90,7 +90,6 @@ def cargar_excel():
                     if not col_monto:
                         raise Exception("No se encontró ninguna columna numérica para realizar los cálculos.")
 
-                    # KPIs Iniciales
                     res = duckdb.query(f"SELECT SUM({col_monto}) as total_v, COUNT(*) as total_r FROM df").fetchone()
                     total_v = float(res[0]) if res[0] is not None else 0.0
                     total_r = int(res[1]) if res[1] is not None else 0
@@ -102,7 +101,6 @@ def cargar_excel():
                         'promedio_venta': f"${prom:,.2f}"
                     }
 
-                    # Gráfico por Meses
                     if col_fecha and col_fecha in df and col_monto in df:
                         df_mes = df.dropna(subset=[col_fecha]).copy()
                         df_mes['mes_num'] = df_mes[col_fecha].dt.month
@@ -111,7 +109,6 @@ def cargar_excel():
                         labels_mes = grp_mes['mes_nombre'].tolist()
                         valores_mes = grp_mes[col_monto].tolist()
 
-                    # Gráfico por Productos
                     if col_prod and col_prod in df and col_monto in df:
                         grp_p = df.groupby(col_prod)[col_monto].sum().head(5)
                         labels_prod = [str(x) for x in grp_p.index.tolist()]
