@@ -62,7 +62,7 @@
         </div>
     {% endif %}
 
-    {% if kpis %}
+    {% if kpis and kpis.total_ventas %}
     <!-- PANEL DE FILTROS DESPLEGABLES -->
     <div class="filter-bar">
         <div class="filter-group">
@@ -118,7 +118,12 @@
         let chartDona, chartLineas;
 
         function inicializarGraficos() {
-            const ctxD = document.getElementById('chartDona').getContext('2d');
+            const elemDona = document.getElementById('chartDona');
+            const elemLineas = document.getElementById('chartLineas');
+
+            if (!elemDona || !elemLineas) return;
+
+            const ctxD = elemDona.getContext('2d');
             chartDona = new Chart(ctxD, {
                 type: 'doughnut',
                 data: {
@@ -130,7 +135,7 @@
                 }
             });
 
-            const ctxL = document.getElementById('chartLineas').getContext('2d');
+            const ctxL = elemLineas.getContext('2d');
             chartLineas = new Chart(ctxL, {
                 type: 'line',
                 data: {
@@ -160,6 +165,7 @@
             })
             .then(res => res.json())
             .then(data => {
+                if (data.error) return;
                 document.getElementById('txtKpiTotal').innerText = data.kpi_total;
                 document.getElementById('txtKpiRemisiones').innerText = data.kpi_remisiones;
                 document.getElementById('txtKpiPromedio').innerText = data.kpi_promedio;

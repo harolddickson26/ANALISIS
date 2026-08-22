@@ -43,7 +43,7 @@ def cargar_excel():
         return redirect(url_for("login"))
     
     error = None
-    kpis = None
+    kpis = {}
     estaciones = []
     anios = []
 
@@ -60,7 +60,10 @@ def cargar_excel():
                     df = pd.read_excel(file, engine=engine)
                     
                     df.columns = [str(col).strip().lower() for col in df.columns]
-                    DATA_STORE[session["usuario"]] = df
+                    
+                    user_key = session.get("usuario", "default_user")
+                    DATA_STORE[user_key] = df
+                    
                     cols = df.columns.tolist()
 
                     col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
@@ -86,7 +89,7 @@ def cargar_excel():
                                 pass
 
                     if not col_monto:
-                        raise Exception("No se encontró ninguna columna numérica para calcular los totales.")
+                        raise Exception("No se encontró ninguna columna numérica para realizar los cálculos.")
 
                     total_v = float(df[col_monto].sum())
                     total_r = len(df)
@@ -107,18 +110,18 @@ def cargar_excel():
         return render_template(
             "cargar_excel.html", 
             error=error, 
-            kpis=kpis or {}, 
-            estaciones=estaciones or [], 
-            anios=anios or []
+            kpis=kpis, 
+            estaciones=estaciones, 
+            anios=anios
         )
     except Exception as e:
-        return f"<h3>Error en plantilla HTML:</h3><pre>{traceback.format_exc()}</pre>", 500
+        return f"<h3>Error al renderizar plantilla:</h3><pre>{traceback.format_exc()}</pre>", 500
 
 # --- API DE FILTRADO PARA DESPLEGABLES ---
 @app.route("/api/filtrar-analisis", methods=["POST"])
 def filtrar_analisis():
-    user = session.get("usuario")
-    if not user or user not in DATA_STORE:
+    user = session.get("usuario", "default_user")
+    if user not in DATA_STORE:
         return jsonify({'error': 'No hay datos cargados'}), 400
 
     df = DATA_STORE[user].copy()
