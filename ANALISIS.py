@@ -9,7 +9,8 @@ app.secret_key = "clave_secreta_super_segura"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-df_global = None
+# Guardar temporalmente el dataframe cargado
+DATA_STORE = {}
 
 @app.route("/")
 def inicio():
@@ -21,8 +22,8 @@ def inicio():
 def login():
     error = None
     if request.method == "POST":
-        usuario_ingresado = request.form["username"]
-        password_ingresado = request.form["password"]
+        usuario_ingresado = request.form.get("username", "")
+        password_ingresado = request.form.get("password", "")
 
         if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
             session["usuario"] = usuario_ingresado
@@ -40,7 +41,6 @@ def logout():
 # --- RUTA PARA SUBIR Y ANALIZAR EXCEL ---
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
-    global df_global
     if "usuario" not in session: 
         return redirect(url_for("login"))
     
@@ -59,34 +59,47 @@ def cargar_excel():
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
                     engine = "openpyxl" if file.filename.endswith(".xlsx") else "xlrd"
-                    df_global = pd.read_excel(file, engine=engine)
+                    df = pd.read_excel(file, engine=engine)
                     
                     # Limpiar nombres de columnas
-                    df_global.columns = [str(col).strip().lower() for col in df_global.columns]
+                    df.columns = [str(col).strip().lower() for col in df.columns]
                     
-                    con = duckdb.connect(database=':memory:')
-                    con.register('datos', df_global)
-                    cols = df_global.columns.tolist()
+                    # Guardar en almacenamiento de sesión
+                    DATA_STORE[session["usuario"]] = df
+                    
+                    cols = df.columns.tolist()
 
                     # Detectar columna de estación/sede
-                    col_estacion = next((c for c in cols if 'estacion' in c or 'sede' in c or 'zona' in c), None)
+                    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
                     if col_estacion:
-                        estaciones = [str(r[0]) for r in con.execute(f"SELECT DISTINCT {col_estacion} FROM datos WHERE {col_estacion} IS NOT NULL").fetchall()]
+                        estaciones = sorted([str(x) for x in df[col_estacion].dropna().unique().tolist()])
 
                     # Detectar columna de fecha
-                    col_fecha = next((c for c in cols if 'fecha' in c or 'date' in c), None)
+                    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
                     if col_fecha:
-                        anios = [str(r[0]) for r in con.execute(f"SELECT DISTINCT YEAR(CAST({col_fecha} AS DATE)) FROM datos WHERE {col_fecha} IS NOT NULL ORDER BY 1 DESC").fetchall()]
+                        df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
+                        anios = sorted([str(int(x)) for x in df[col_fecha].dt.year.dropna().unique().tolist()], reverse=True)
 
-                    # Detectar columna de monto
-                    num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
-                    col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else None)
+                    # Detectar columna de monto/ventas
+                    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+                    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe'])), num_cols[-1] if num_cols else None)
 
                     if not col_monto:
-                        raise Exception("No se encontró ninguna columna numérica para calcular los indicadores.")
+                        # Intentar convertir columnas que puedan tener texto con numeros
+                        for col in cols:
+                            try:
+                                df[col] = pd.to_numeric(df[col], errors='coerce')
+                                if df[col].notna().sum() > 0:
+                                    col_monto = col
+                                    break
+                            except:
+                                pass
 
-                    total_v = con.execute(f"SELECT COALESCE(SUM({col_monto}), 0) FROM datos").fetchone()[0]
-                    total_r = len(df_global)
+                    if not col_monto:
+                        raise Exception("No se encontró ninguna columna numérica para realizar las sumas.")
+
+                    total_v = float(df[col_monto].sum())
+                    total_r = len(df)
                     prom = total_v / total_r if total_r > 0 else 0
                     
                     kpis = {
@@ -100,60 +113,65 @@ def cargar_excel():
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
-    # Siempre pasar estaciones, anios y kpis (incluso vacíos en GET) para evitar Server Error
     return render_template("cargar_excel.html", error=error, kpis=kpis, estaciones=estaciones, anios=anios)
 
 # --- API DE FILTRADO PARA DESPLEGABLES ---
 @app.route("/api/filtrar-analisis", methods=["POST"])
 def filtrar_analisis():
-    global df_global
-    if df_global is None:
+    user = session.get("usuario")
+    if not user or user not in DATA_STORE:
         return jsonify({'error': 'No hay datos cargados'}), 400
 
-    data = request.get_json()
+    df = DATA_STORE[user].copy()
+    data = request.get_json() or {}
     estacion_sel = data.get('estacion')
     anio_sel = data.get('anio')
 
-    con = duckdb.connect(database=':memory:')
-    con.register('datos', df_global)
-    cols = df_global.columns.tolist()
+    cols = df.columns.tolist()
+    col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
+    col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
 
-    col_estacion = next((c for c in cols if 'estacion' in c or 'sede' in c or 'zona' in c), None)
-    col_fecha = next((c for c in cols if 'fecha' in c or 'date' in c), None)
-
-    condiciones = []
+    # Filtrado
     if col_estacion and estacion_sel and estacion_sel != 'Todas':
-        condiciones.append(f"{col_estacion} = '{estacion_sel}'")
+        df = df[df[col_estacion].astype(str) == str(estacion_sel)]
+        
     if col_fecha and anio_sel and anio_sel != 'Todos':
-        condiciones.append(f"YEAR(CAST({col_fecha} AS DATE)) = {anio_sel}")
+        df[col_fecha] = pd.to_datetime(df[col_fecha], errors='coerce')
+        df = df[df[col_fecha].dt.year.astype(str) == str(anio_sel)]
 
-    where_clause = " WHERE " + " AND ".join(condiciones) if condiciones else ""
-
-    num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
-    col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else cols[0])
+    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+    col_monto = next((c for c in num_cols if any(k in c for k in ['monto', 'total', 'venta', 'valor', 'precio', 'importe'])), num_cols[-1] if num_cols else cols[0])
     
-    text_cols = df_global.select_dtypes(include=['object']).columns.tolist()
-    col_prod = next((c for c in text_cols if 'producto' in c or 'categoria' in c or 'descripcion' in c), text_cols[0] if text_cols else cols[0])
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    col_prod = next((c for c in text_cols if any(k in c for k in ['producto', 'categoria', 'descripcion', 'item'])), text_cols[0] if text_cols else cols[0])
 
-    total_v = con.execute(f"SELECT COALESCE(SUM({col_monto}), 0) FROM datos {where_clause}").fetchone()[0]
-    total_r = con.execute(f"SELECT COUNT(*) FROM datos {where_clause}").fetchone()[0]
-    prom = total_v / total_r if total_r > 0 else 0
+    total_v = float(df[col_monto].sum()) if col_monto in df else 0.0
+    total_r = len(df)
+    prom = total_v / total_r if total_r > 0 else 0.0
 
-    res_prod = con.execute(f"SELECT {col_prod}, SUM({col_monto}) FROM datos {where_clause} GROUP BY {col_prod} LIMIT 5").fetchall()
-    
-    if col_fecha:
-        res_mes = con.execute(f"SELECT STRFTIME(CAST({col_fecha} AS DATE), '%m-%b'), SUM({col_monto}) FROM datos {where_clause} GROUP BY 1 ORDER BY 1").fetchall()
-    else:
-        res_mes = []
+    # Agrupar por producto
+    labels_prod, valores_prod = [], []
+    if col_prod in df and col_monto in df:
+        grp_prod = df.groupby(col_prod)[col_monto].sum().head(5)
+        labels_prod = [str(x) for x in grp_prod.index.tolist()]
+        valores_prod = [float(x) for x in grp_prod.values.tolist()]
+
+    # Agrupar por mes
+    labels_mes, valores_mes = [], []
+    if col_fecha in df and col_monto in df:
+        df['mes_str'] = df[col_fecha].dt.strftime('%m-%b')
+        grp_mes = df.groupby('mes_str')[col_monto].sum()
+        labels_mes = [str(x) for x in grp_mes.index.tolist()]
+        valores_mes = [float(x) for x in grp_mes.values.tolist()]
 
     return jsonify({
         'kpi_total': f"${total_v:,.2f}",
         'kpi_remisiones': f"{total_r:,}",
         'kpi_promedio': f"${prom:,.2f}",
-        'labels_prod': [str(r[0]) for r in res_prod],
-        'valores_prod': [r[1] for r in res_prod],
-        'labels_mes': [str(r[0]) for r in res_mes],
-        'valores_mes': [r[1] for r in res_mes]
+        'labels_prod': labels_prod,
+        'valores_prod': valores_prod,
+        'labels_mes': labels_mes,
+        'valores_mes': valores_mes
     })
 
 if __name__ == "__main__":
