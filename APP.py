@@ -5,8 +5,8 @@ app = Flask(__name__)
 app.secret_key = "clave_secreta_super_segura"
 
 # Credenciales de prueba
-USUARIO_CORRECTO = "DianaPaulina"
-PASSWORD_CORRECTO = "3127835548"
+USUARIO_CORRECTO = "DICKSON"
+PASSWORD_CORRECTO = "1234"
 
 @app.route("/")
 def inicio():
