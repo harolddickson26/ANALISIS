@@ -2,85 +2,181 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cargar Excel - Análisis</title>
+    <title>Dashboard Interactivo - Análisis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            padding: 30px;
-            text-align: center;
+        :root {
+            --primary-purple: #6b1d80;
+            --dark-purple: #4b1259;
+            --bg-light: #f4f6f9;
         }
-        .container {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            max-width: 900px;
-            margin: auto;
+
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-light); margin: 0; padding: 20px; }
+
+        .header-banner {
+            background: linear-gradient(135deg, var(--dark-purple), var(--primary-purple));
+            color: white; padding: 15px 20px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
         }
-        .btn-submit {
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
+
+        .filter-bar {
+            background: white; padding: 15px 20px; border-radius: 8px;
+            display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
+            border-left: 5px solid var(--primary-purple); box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .btn-submit:hover { background-color: #219150; }
-        .btn-back {
-            display: inline-block;
-            margin-top: 20px;
-            color: #3498db;
-            text-decoration: none;
-            font-weight: bold;
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase; }
+        .filter-group select {
+            padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; font-weight: 600; outline: none;
         }
-        .error { color: #e74c3c; font-weight: bold; }
-        /* Estilos para la tabla cargada desde Pandas */
-        .tabla-contenedor {
-            overflow-x: auto;
-            margin-top: 25px;
+
+        .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .kpi-card {
+            background: white; padding: 15px; border-radius: 8px; text-align: center;
+            border-top: 4px solid var(--primary-purple); box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .tabla-excel {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        .tabla-excel th, .tabla-excel td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        .tabla-excel th {
-            background-color: #34495e;
-            color: white;
-        }
-        .tabla-excel tr:nth-child(even) { background-color: #f2f2f2; }
+        .kpi-card small { font-size: 11px; text-transform: uppercase; color: #777; font-weight: bold; }
+        .kpi-card h3 { margin: 5px 0 0 0; color: var(--dark-purple); font-size: 22px; }
+
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .chart-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .chart-title { font-size: 12px; font-weight: bold; color: #333; margin-bottom: 10px; text-transform: uppercase; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>📊 Cargar y Visualizar Archivo Excel</h2>
-        
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
 
-        <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="archivo_excel" accept=".xlsx, .xls" required>
-            <button type="submit" class="btn-submit">Cargar Archivo</button>
+    <div class="header-banner">
+        <div>
+            <h2 style="margin:0; text-transform:uppercase;">📊 Panel de Control Interactivo</h2>
+            <small>Análisis Operativo y de Ventas</small>
+        </div>
+        <form method="POST" enctype="multipart/form-data" style="display:flex; gap:10px;">
+            <input type="file" name="archivo_excel" accept=".xlsx, .xls" required style="color:white;">
+            <button type="submit" style="background:#00d2ff; border:none; padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer;">Cargar Datos</button>
         </form>
-
-        {% if tabla_html %}
-            <h3>Contenido del Archivo:</h3>
-            <div class="tabla-contenedor">
-                {{ tabla_html | safe }}
-            </div>
-        {% endif %}
-
-        <br>
-        <a href="/" class="btn-back">⬅ Volver al Menú Principal</a>
     </div>
+
+    {% if error %}
+        <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    {% if kpis %}
+    <!-- PANEL DE FILTROS DESPLEGABLES -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Filtrar por Estación / Sede:</label>
+            <select id="selectEstacion" onchange="aplicarFiltros()">
+                <option value="Todas">Todas las Estaciones</option>
+                {% for est in estaciones %}
+                    <option value="{{ est }}">{{ est }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Filtrar por Año:</label>
+            <select id="selectAnio" onchange="aplicarFiltros()">
+                <option value="Todos">Todos los Años</option>
+                {% for anio in anios %}
+                    <option value="{{ anio }}">{{ anio }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE INDICADORES (KPIs) -->
+    <div class="kpi-row">
+        <div class="kpi-card">
+            <small>Ventas Totales</small>
+            <h3 id="txtKpiTotal">{{ kpis.total_ventas }}</h3>
+        </div>
+        <div class="kpi-card">
+            <small>Total Registros</small>
+            <h3 id="txtKpiRemisiones">{{ kpis.total_remisiones }}</h3>
+        </div>
+        <div class="kpi-card">
+            <small>Promedio por Operación</small>
+            <h3 id="txtKpiPromedio">{{ kpis.promedio_venta }}</h3>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE GRÁFICOS -->
+    <div class="charts-grid">
+        <div class="chart-box">
+            <div class="chart-title">Distribución por Categoria / Producto</div>
+            <canvas id="chartDona"></canvas>
+        </div>
+        <div class="chart-box">
+            <div class="chart-title">Tendencia Mensual</div>
+            <canvas id="chartLineas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let chartDona, chartLineas;
+
+        function inicializarGraficos() {
+            const ctxD = document.getElementById('chartDona').getContext('2d');
+            chartDona = new Chart(ctxD, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#4b1259', '#6b1d80', '#9b59b6', '#3498db', '#2ecc71']
+                    }]
+                }
+            });
+
+            const ctxL = document.getElementById('chartLineas').getContext('2d');
+            chartLineas = new Chart(ctxL, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Ventas ($)',
+                        data: [],
+                        borderColor: '#6b1d80',
+                        backgroundColor: 'rgba(107, 29, 128, 0.15)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                }
+            });
+
+            aplicarFiltros();
+        }
+
+        function aplicarFiltros() {
+            const estacion = document.getElementById('selectEstacion').value;
+            const anio = document.getElementById('selectAnio').value;
+
+            fetch('/api/filtrar-analisis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estacion: estacion, anio: anio })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('txtKpiTotal').innerText = data.kpi_total;
+                document.getElementById('txtKpiRemisiones').innerText = data.kpi_remisiones;
+                document.getElementById('txtKpiPromedio').innerText = data.kpi_promedio;
+
+                chartDona.data.labels = data.labels_prod;
+                chartDona.data.datasets[0].data = data.valores_prod;
+                chartDona.update();
+
+                chartLineas.data.labels = data.labels_mes;
+                chartLineas.data.datasets[0].data = data.valores_mes;
+                chartLineas.update();
+            });
+        }
+
+        window.onload = inicializarGraficos;
+    </script>
+    {% endif %}
+
 </body>
 </html>
