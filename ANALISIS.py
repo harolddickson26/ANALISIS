@@ -66,25 +66,24 @@ def cargar_excel():
                     
                     con = duckdb.connect(database=':memory:')
                     con.register('datos', df_global)
-                    
                     cols = df_global.columns.tolist()
 
-                    # Buscar columna de estación/sede
+                    # Detectar columna de estación/sede
                     col_estacion = next((c for c in cols if 'estacion' in c or 'sede' in c or 'zona' in c), None)
                     if col_estacion:
-                        estaciones = [r[0] for r in con.execute(f"SELECT DISTINCT {col_estacion} FROM datos WHERE {col_estacion} IS NOT NULL").fetchall()]
+                        estaciones = [str(r[0]) for r in con.execute(f"SELECT DISTINCT {col_estacion} FROM datos WHERE {col_estacion} IS NOT NULL").fetchall()]
 
-                    # Buscar columna de fecha
+                    # Detectar columna de fecha
                     col_fecha = next((c for c in cols if 'fecha' in c or 'date' in c), None)
                     if col_fecha:
-                        anios = [r[0] for r in con.execute(f"SELECT DISTINCT YEAR(CAST({col_fecha} AS DATE)) FROM datos WHERE {col_fecha} IS NOT NULL ORDER BY 1 DESC").fetchall()]
+                        anios = [str(r[0]) for r in con.execute(f"SELECT DISTINCT YEAR(CAST({col_fecha} AS DATE)) FROM datos WHERE {col_fecha} IS NOT NULL ORDER BY 1 DESC").fetchall()]
 
-                    # Buscar columna NUMÉRICA para el SUM (excluyendo fechas e identificadores)
+                    # Detectar columna de monto
                     num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
                     col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else None)
 
                     if not col_monto:
-                        raise Exception("No se encontró ninguna columna numérica para calcular el total.")
+                        raise Exception("No se encontró ninguna columna numérica para calcular los indicadores.")
 
                     total_v = con.execute(f"SELECT COALESCE(SUM({col_monto}), 0) FROM datos").fetchone()[0]
                     total_r = len(df_global)
@@ -101,6 +100,7 @@ def cargar_excel():
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
+    # Siempre pasar estaciones, anios y kpis (incluso vacíos en GET) para evitar Server Error
     return render_template("cargar_excel.html", error=error, kpis=kpis, estaciones=estaciones, anios=anios)
 
 # --- API DE FILTRADO PARA DESPLEGABLES ---
@@ -129,7 +129,6 @@ def filtrar_analisis():
 
     where_clause = " WHERE " + " AND ".join(condiciones) if condiciones else ""
 
-    # Determinar columna de monto y producto
     num_cols = df_global.select_dtypes(include=['number']).columns.tolist()
     col_monto = next((c for c in num_cols if 'monto' in c or 'total' in c or 'venta' in c or 'valor' in c), num_cols[-1] if num_cols else cols[0])
     
