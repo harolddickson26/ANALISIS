@@ -37,7 +37,7 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# --- RUTA PARA SUBIR Y ANALIZAR EXCEL CON BAJO CONSUMO DE MEMORIA ---
+# --- RUTA PARA SUBIR Y ANALIZAR EXCEL ---
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -57,9 +57,9 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    # Carga optimizada sin formateo visual para ahorrar memoria RAM
+                    # Lectura ultrarrápida con calamine para evitar consumo de memoria RAM
                     if file.filename.endswith(".xlsx"):
-                        df = pd.read_excel(file, engine="openpyxl")
+                        df = pd.read_excel(file, engine="calamine")
                     else:
                         df = pd.read_excel(file, engine="xlrd")
                     
@@ -96,7 +96,7 @@ def cargar_excel():
                     if not col_monto:
                         raise Exception("No se encontró ninguna columna numérica para realizar los cálculos.")
 
-                    # Consultas ultra rápidas usando memoria de DuckDB
+                    # Consultas en memoria mediante DuckDB
                     res = duckdb.query(f"SELECT SUM({col_monto}) as total_v, COUNT(*) as total_r FROM df").fetchone()
                     total_v = float(res[0]) if res[0] is not None else 0.0
                     total_r = int(res[1]) if res[1] is not None else 0
@@ -137,7 +137,6 @@ def filtrar_analisis():
     col_estacion = next((c for c in cols if any(k in c for k in ['estacion', 'sede', 'zona', 'centro'])), None)
     col_fecha = next((c for c in cols if any(k in c for k in ['fecha', 'date', 'dia'])), None)
 
-    # Filtrado mediante DuckDB para evitar duplicados en memoria RAM
     query = "SELECT * FROM df WHERE 1=1"
     if col_estacion and estacion_sel and estacion_sel != 'Todas':
         query += f" AND CAST({col_estacion} AS VARCHAR) = '{estacion_sel}'"
