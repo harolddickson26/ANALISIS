@@ -112,10 +112,10 @@ let chartProductos = null;
 const ctxMeses = document.getElementById('chartMeses').getContext('2d');
 const ctxProductos = document.getElementById('chartProductos').getContext('2d');
 
-const initialLabelsMes = {{ labels_mes | default([]) | tojson }};
-const initialValoresMes = {{ valores_mes | default([]) | tojson }};
-const initialLabelsProd = {{ labels_prod | default([]) | tojson }};
-const initialValoresProd = {{ valores_prod | default([]) | tojson }};
+const initialLabelsMes = {{ json_labels_mes | safe }};
+const initialValoresMes = {{ json_valores_mes | safe }};
+const initialLabelsProd = {{ json_labels_prod | safe }};
+const initialValoresProd = {{ json_valores_prod | safe }};
 
 function renderChartMeses(labels, data) {
     if (chartMeses) chartMeses.destroy();
@@ -152,8 +152,8 @@ function renderChartProductos(labels, data) {
     });
 }
 
-if (initialLabelsMes.length > 0) renderChartMeses(initialLabelsMes, initialValoresMes);
-if (initialLabelsProd.length > 0) renderChartProductos(initialLabelsProd, initialValoresProd);
+if (initialLabelsMes && initialLabelsMes.length > 0) renderChartMeses(initialLabelsMes, initialValoresMes);
+if (initialLabelsProd && initialLabelsProd.length > 0) renderChartProductos(initialLabelsProd, initialValoresProd);
 
 document.querySelectorAll('#selectEstacion, #selectAnio, #selectProducto').forEach(select => {
     select.addEventListener('change', function() {

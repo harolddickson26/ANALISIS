@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import pandas as pd
 import duckdb
+import json
 
 app = Flask(__name__)
 app.secret_key = "clave_secreta_analisis_app"
@@ -126,10 +127,10 @@ def cargar_excel():
         estaciones=estaciones, 
         anios=anios,
         productos=productos,
-        labels_mes=labels_mes,
-        valores_mes=valores_mes,
-        labels_prod=labels_prod,
-        valores_prod=valores_prod
+        json_labels_mes=json.dumps(labels_mes),
+        json_valores_mes=json.dumps(valores_mes),
+        json_labels_prod=json.dumps(labels_prod),
+        json_valores_prod=json.dumps(valores_prod)
     )
 
 @app.route("/api/filtrar-analisis", methods=["POST"])
