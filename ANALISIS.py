@@ -113,6 +113,7 @@ def paso2_columnas():
 
 # PASO 3: Resumen y Dashboard
 # PASO 3: Resumen y Dashboard con desglose por Mes
+# PASO 3: Resumen y Dashboard con desglose por Mes
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -161,7 +162,6 @@ def dashboard():
         try:
             resumen_meses = con.execute(q_mes).fetchall()
         except Exception:
-            # Resguardo si las fechas vienen con hora o texto mixto
             q_mes_fallback = f"""
                 SELECT 
                     STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes,
