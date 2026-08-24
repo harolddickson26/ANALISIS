@@ -1,6 +1,8 @@
-import pandas as pd
-import duckdb
+import os
+import io
 import gc
+import duckdb
+import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
@@ -9,7 +11,10 @@ app.secret_key = "clave_secreta_analisis_app"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-# Memoria global optimizada
+# Carpeta para archivos temporales
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 DATA_STORE = {}
 
 @app.route("/")
@@ -38,7 +43,7 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# PASO 1: Carga ligera (Solo lectura de estructura/encabezados)
+# PASO 1: Carga ligera de estructura
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -54,22 +59,24 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    # Guardar el contenido del archivo temporalmente
-                    file_bytes = file.read()
-                    
-                    # Leer solo las primeras 5 filas para obtener encabezados rápido sin saturar RAM
+                    # Guardar archivo en disco local para no agotar la memoria RAM
+                    file_path = os.path.join(UPLOAD_FOLDER, f"{user_key}_{file.filename}")
+                    file.save(file_path)
+
+                    # Leer solo las primeras 5 filas para extraer encabezados super rápido
                     engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
-                    df_preview = pd.read_excel(file_bytes, engine=engine_type, nrows=5)
-                    
+                    df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
                     columnas = [str(col).strip() for col in df_preview.columns]
-                    
+
                     DATA_STORE[user_key] = {
-                        'file_bytes': file_bytes,
+                        'file_path': file_path,
                         'filename': file.filename,
                         'columnas': columnas
                     }
                     
+                    del df_preview
                     gc.collect()
+                    
                     return redirect(url_for("paso2_columnas"))
 
                 except Exception as e:
@@ -109,7 +116,7 @@ def paso2_columnas():
         total_columnas=len(data['columnas'])
     )
 
-# PASO 3: Dashboard con carga optimizada de columnas
+# PASO 3: Dashboard con DuckDB leyendo directo del disco
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -120,22 +127,22 @@ def dashboard():
         return redirect(url_for("cargar_excel"))
 
     mapeo = DATA_STORE[user_key]['mapeo_columnas']
-    file_bytes = DATA_STORE[user_key]['file_bytes']
+    file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
 
-    # Filtrar solo las columnas seleccionadas
+    # Cargar solo columnas necesarias en Pandas para la consulta
     cols_a_cargar = list({v for v in mapeo.values() if v and v != "None"})
 
     try:
         engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
         if cols_a_cargar:
-            df = pd.read_excel(file_bytes, engine=engine_type, usecols=cols_a_cargar)
+            df = pd.read_excel(file_path, engine=engine_type, usecols=cols_a_cargar)
         else:
-            df = pd.read_excel(file_bytes, engine=engine_type)
+            df = pd.read_excel(file_path, engine=engine_type)
         
         df.columns = [str(col).strip() for col in df.columns]
     except Exception as e:
-        return f"Error al procesar las filas seleccionadas: {str(e)}"
+        return f"Error al procesar el archivo: {str(e)}"
 
     con = duckdb.connect()
     con.register("tabla_excel", df)
@@ -219,7 +226,7 @@ def dashboard():
         'total_registros': f"{res_kpis[2]:,}"
     }
 
-    # Limpieza de memoria explícita
+    # Limpieza explicita de RAM
     del df
     gc.collect()
 
