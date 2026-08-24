@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import pandas as pd
 import duckdb
+import gc
+from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
 app.secret_key = "clave_secreta_analisis_app"
@@ -8,7 +9,7 @@ app.secret_key = "clave_secreta_analisis_app"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-# Memoria global para el DataFrame y metadatos por usuario
+# Memoria global optimizada
 DATA_STORE = {}
 
 @app.route("/")
@@ -37,7 +38,7 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# PASO 1: Carga del Archivo Excel
+# PASO 1: Carga ligera (Solo lectura de estructura/encabezados)
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -53,34 +54,32 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    # Carga ligera y limpia de encabezados
-                    if file.filename.endswith(".xlsx"):
-                        df = pd.read_excel(file, engine="calamine")
-                    else:
-                        df = pd.read_excel(file, engine="xlrd")
+                    # Guardar el contenido del archivo temporalmente
+                    file_bytes = file.read()
                     
-                    df.columns = [str(col).strip() for col in df.columns]
+                    # Leer solo las primeras 5 filas para obtener encabezados rápido sin saturar RAM
+                    engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
+                    df_preview = pd.read_excel(file_bytes, engine=engine_type, nrows=5)
                     
-                    # Guardar DataFrame y estructura
+                    columnas = [str(col).strip() for col in df_preview.columns]
+                    
                     DATA_STORE[user_key] = {
-                        'df': df,
+                        'file_bytes': file_bytes,
                         'filename': file.filename,
-                        'columnas': df.columns.tolist(),
-                        'total_filas': len(df)
+                        'columnas': columnas
                     }
                     
-                    # Redirigir al Paso 2: Selección con listas desplegables
+                    gc.collect()
                     return redirect(url_for("paso2_columnas"))
 
                 except Exception as e:
-                    error = f"Error al procesar el archivo Excel: {str(e)}"
+                    error = f"Error al leer la estructura del Excel: {str(e)}"
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Selección y confirmación de columnas por listas desplegables
-# PASO 2: Selección de columnas y redirección al Paso 3
+# PASO 2: Selección de columnas
 @app.route("/paso2-columnas", methods=["GET", "POST"])
 def paso2_columnas():
     if not session.get("usuario"):
@@ -107,13 +106,10 @@ def paso2_columnas():
         "Lista_despegable_columna.html",
         columnas=data['columnas'],
         filename=data['filename'],
-        total_filas=f"{data['total_filas']:,}",
         total_columnas=len(data['columnas'])
     )
 
-# PASO 3: Resumen y Dashboard
-# PASO 3: Resumen y Dashboard con desglose por Mes
-# PASO 3: Resumen y Dashboard con desglose por Mes
+# PASO 3: Dashboard con carga optimizada de columnas
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -123,8 +119,23 @@ def dashboard():
     if user_key not in DATA_STORE or 'mapeo_columnas' not in DATA_STORE[user_key]:
         return redirect(url_for("cargar_excel"))
 
-    df = DATA_STORE[user_key]['df']
     mapeo = DATA_STORE[user_key]['mapeo_columnas']
+    file_bytes = DATA_STORE[user_key]['file_bytes']
+    filename = DATA_STORE[user_key]['filename']
+
+    # Filtrar solo las columnas seleccionadas
+    cols_a_cargar = list({v for v in mapeo.values() if v and v != "None"})
+
+    try:
+        engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
+        if cols_a_cargar:
+            df = pd.read_excel(file_bytes, engine=engine_type, usecols=cols_a_cargar)
+        else:
+            df = pd.read_excel(file_bytes, engine=engine_type)
+        
+        df.columns = [str(col).strip() for col in df.columns]
+    except Exception as e:
+        return f"Error al procesar las filas seleccionadas: {str(e)}"
 
     con = duckdb.connect()
     con.register("tabla_excel", df)
@@ -135,7 +146,7 @@ def dashboard():
     col_producto = f'"{mapeo["producto"]}"' if mapeo.get("producto") else "NULL"
     col_fecha = f'"{mapeo["fecha"]}"' if mapeo.get("fecha") else "NULL"
 
-    # KPIs Generales
+    # KPIs
     query_kpis = f"""
         SELECT 
             COALESCE(SUM(TRY_CAST({col_monto} AS DOUBLE)), 0) as total_monto,
@@ -208,14 +219,19 @@ def dashboard():
         'total_registros': f"{res_kpis[2]:,}"
     }
 
+    # Limpieza de memoria explícita
+    del df
+    gc.collect()
+
     return render_template(
         "dashboard.html",
         kpis=kpis,
         meses=resumen_meses,
         estaciones=resumen_estaciones,
         productos=resumen_productos,
-        filename=DATA_STORE[user_key]['filename'],
+        filename=filename,
         mapeo=mapeo
     )
+
 if __name__ == "__main__":
     app.run(debug=True)
