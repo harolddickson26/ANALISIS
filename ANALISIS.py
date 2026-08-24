@@ -116,7 +116,7 @@ def paso2_columnas():
         total_columnas=len(data['columnas'])
     )
 
-# PASO 3: Dashboard con DuckDB leyendo directo del disco
+# PASO 3: Dashboard con DuckDB + Listas para Gráficos
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -153,7 +153,7 @@ def dashboard():
     col_producto = f'"{mapeo["producto"]}"' if mapeo.get("producto") else "NULL"
     col_fecha = f'"{mapeo["fecha"]}"' if mapeo.get("fecha") else "NULL"
 
-    # KPIs
+    # KPIs Generales
     query_kpis = f"""
         SELECT 
             COALESCE(SUM(TRY_CAST({col_monto} AS DOUBLE)), 0) as total_monto,
@@ -226,6 +226,18 @@ def dashboard():
         'total_registros': f"{res_kpis[2]:,}"
     }
 
+    # -------------------------------------------------------------
+    # PREPARACIÓN DE DATOS PARA GRAFICOS EN JS
+    # -------------------------------------------------------------
+    chart_meses_labels = [str(r[0]) for r in resumen_meses]
+    chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
+
+    chart_estaciones_labels = [str(r[0]) for r in resumen_estaciones]
+    chart_estaciones_data = [float(r[1]) if r[1] else 0.0 for r in resumen_estaciones]
+
+    chart_productos_labels = [str(r[0]) for r in resumen_productos]
+    chart_productos_data = [float(r[1]) if r[1] else 0.0 for r in resumen_productos]
+
     # Limpieza explicita de RAM
     del df
     gc.collect()
@@ -237,7 +249,14 @@ def dashboard():
         estaciones=resumen_estaciones,
         productos=resumen_productos,
         filename=filename,
-        mapeo=mapeo
+        mapeo=mapeo,
+        # Nuevas variables pasadas al HTML para los gráficos:
+        chart_meses_labels=chart_meses_labels,
+        chart_meses_data=chart_meses_data,
+        chart_estaciones_labels=chart_estaciones_labels,
+        chart_estaciones_data=chart_estaciones_data,
+        chart_productos_labels=chart_productos_labels,
+        chart_productos_data=chart_productos_data
     )
 
 if __name__ == "__main__":
