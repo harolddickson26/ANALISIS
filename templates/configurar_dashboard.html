@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuración de Columnas y KPIs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card-custom { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .header-bg { background-color: #581870; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div class="card card-custom bg-white">
+        <div class="card-header header-bg p-4 text-center">
+            <h3 class="fw-bold m-0">⚙️ PASO PREVIO: CONFIGURACIÓN DE COLUMNAS Y KPIS</h3>
+            <p class="mb-0 text-white-50">Selecciona los indicadores y filtros para construir tu Dashboard</p>
+        </div>
+        <div class="card-body p-4">
+            <form action="/generar-dashboard" method="POST">
+                
+                <!-- SECCIÓN 1: KPIS -->
+                <h5 class="fw-bold text-secondary mb-3">1. Selecciona las Métricas Principales (Tarjetas KPI)</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="form-check card p-3 h-100">
+                            <input class="form-check-input" type="checkbox" name="kpis" value="remisionmonto" id="kpi_v" checked>
+                            <label class="form-check-label fw-bold" for="kpi_v">Total Ventas ($)<br><small class="text-muted">remisionmonto</small></label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check card p-3 h-100">
+                            <input class="form-check-input" type="checkbox" name="kpis" value="remisioncantidad" id="kpi_g" checked>
+                            <label class="form-check-label fw-bold" for="kpi_g">Total Galones<br><small class="text-muted">remisioncantidad</small></label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check card p-3 h-100 border-success">
+                            <input class="form-check-input" type="checkbox" name="kpis" value="monto_neto" id="kpi_n" checked>
+                            <label class="form-check-label fw-bold text-success" for="kpi_n">Monto Neto Calculado<br><small class="text-muted">(Precio - Increm) * Galones [DuckDB]</small></label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check card p-3 h-100">
+                            <input class="form-check-input" type="checkbox" name="kpis" value="registros" id="kpi_r" checked>
+                            <label class="form-check-label fw-bold" for="kpi_r">Total Remisiones<br><small class="text-muted">Conteo de Registros</small></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: FILTROS -->
+                <h5 class="fw-bold text-secondary mb-3">2. Selecciona las Columnas para Filtros Interactivos</h5>
+                <div class="row g-2 mb-4">
+                    {% for col in columnas %}
+                    <div class="col-md-3">
+                        <div class="form-check bg-light p-2 rounded border">
+                            <input class="form-check-input" type="checkbox" name="filtros" value="{{ col }}" id="f_{{ loop.index }}"
+                            {% if col in ['estacionnombre', 'remisionfecha', 'productonombre', 'clientenombre'] %}checked{% endif %}>
+                            <label class="form-check-label small" for="f_{{ loop.index }}">{{ col }}</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-success btn-lg px-5 fw-bold">🚀 Generar Dashboard</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

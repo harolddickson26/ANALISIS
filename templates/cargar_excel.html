@@ -9,8 +9,9 @@
         body { background-color: #f8f9fa; }
         .navbar-custom { background-color: #581870; color: white; }
         .card-custom { border-radius: 10px; border: 1px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .kpi-title { font-size: 0.8rem; font-weight: bold; color: #6c757d; text-transform: uppercase; }
-        .kpi-value { font-size: 1.8rem; font-weight: bold; color: #581870; }
+        .kpi-title { font-size: 0.75rem; font-weight: bold; color: #6c757d; text-transform: uppercase; }
+        .kpi-value { font-size: 1.5rem; font-weight: bold; color: #581870; }
+        .kpi-sub { font-size: 0.7rem; color: #888; }
     </style>
 </head>
 <body>
@@ -18,12 +19,12 @@
 <div class="navbar-custom p-3 mb-4">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="m-0 fw-bold">📊 PANEL DE CONTROL INTERACTIVO</h4>
-            <small>Análisis Operativo y de Ventas</small>
+            <h4 class="m-0 fw-bold">📊 PANEL DE CONTROL INTERACTIVO (ENFOQUE 2)</h4>
+            <small>Análisis Operativo con Cálculo Dinámico DuckDB</small>
         </div>
         <form action="/cargar-excel" method="POST" enctype="multipart/form-data" class="d-flex align-items-center">
             <input type="file" name="archivo_excel" class="form-control form-control-sm me-2" required>
-            <button type="submit" class="btn btn-info text-white fw-bold btn-sm">Cargar Datos</button>
+            <button type="submit" class="btn btn-info text-white fw-bold btn-sm">Cargar Nuevo Archivo</button>
         </form>
     </div>
 </div>
@@ -33,72 +34,117 @@
         <div class="alert alert-danger" role="alert">{{ error }}</div>
     {% endif %}
 
-    <!-- FILTROS -->
+    {% if opciones_filtros %}
+    <!-- FILTROS SELECCIONADOS -->
     <div class="card card-custom p-3 mb-4 bg-white">
         <div class="row">
-            <div class="col-md-4">
-                <label class="form-label fw-bold small text-muted">FILTRAR POR ESTACIÓN / SEDE:</label>
-                <select id="selectEstacion" class="form-select form-select-sm">
+            {% if 'estacionnombre' in filtros_activos or opciones_filtros.get('estacionnombre') %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold small text-muted">ESTACIÓN / SEDE:</label>
+                <select id="selectEstacion" class="form-select form-select-sm filtro-control">
                     <option value="Todas">Todas las Estaciones</option>
-                    {% for est in estaciones %}
+                    {% for est in opciones_filtros.get('estacionnombre', []) %}
                         <option value="{{ est }}">{{ est }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold small text-muted">FILTRAR POR AÑO:</label>
-                <select id="selectAnio" class="form-select form-select-sm">
+            {% endif %}
+
+            {% if opciones_filtros.get('anios') %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold small text-muted">AÑO:</label>
+                <select id="selectAnio" class="form-select form-select-sm filtro-control">
                     <option value="Todos">Todos los Años</option>
-                    {% for anio in anios %}
+                    {% for anio in opciones_filtros.get('anios', []) %}
                         <option value="{{ anio }}">{{ anio }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold small text-muted">FILTRAR POR PRODUCTO:</label>
-                <select id="selectProducto" class="form-select form-select-sm">
+            {% endif %}
+
+            {% if opciones_filtros.get('meses') %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold small text-muted">MES:</label>
+                <select id="selectMes" class="form-select form-select-sm filtro-control">
+                    <option value="Todos">Todos los Meses</option>
+                    {% for m in opciones_filtros.get('meses', []) %}
+                        <option value="{{ m.num }}">{{ m.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            {% if 'productonombre' in filtros_activos or opciones_filtros.get('productonombre') %}
+            <div class="col-md-3">
+                <label class="form-label fw-bold small text-muted">PRODUCTO:</label>
+                <select id="selectProducto" class="form-select form-select-sm filtro-control">
                     <option value="Todos">Todos los Productos</option>
-                    {% for prod in productos %}
+                    {% for prod in opciones_filtros.get('productonombre', []) %}
                         <option value="{{ prod }}">{{ prod }}</option>
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- TARJETAS DE KPIS -->
+    {% if kpis %}
     <div class="row text-center mb-4">
-        <div class="col-md-4">
+        {% if kpis.total_ventas %}
+        <div class="col-md-3">
             <div class="card card-custom p-3 bg-white">
-                <div class="kpi-title">Ventas Totales</div>
-                <div class="kpi-value" id="kpiTotal">{{ kpis.total_ventas if kpis else '$0.00' }}</div>
+                <div class="kpi-title">Ventas Totales ($)</div>
+                <div class="kpi-value" id="kpiTotal">{{ kpis.total_ventas }}</div>
+                <span class="kpi-sub">RemisionMonto</span>
             </div>
         </div>
-        <div class="col-md-4">
+        {% endif %}
+
+        {% if kpis.total_galones %}
+        <div class="col-md-3">
             <div class="card card-custom p-3 bg-white">
-                <div class="kpi-title">Total Registros</div>
-                <div class="kpi-value" id="kpiRemisiones">{{ kpis.total_remisiones if kpis else '0' }}</div>
+                <div class="kpi-title">Total Galones</div>
+                <div class="kpi-value" id="kpiGalones">{{ kpis.total_galones }}</div>
+                <span class="kpi-sub">RemisionCantidad</span>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card card-custom p-3 bg-white">
-                <div class="kpi-title">Promedio por Operación</div>
-                <div class="kpi-value" id="kpiPromedio">{{ kpis.promedio_venta if kpis else '$0.00' }}</div>
+        {% endif %}
+
+        {% if kpis.monto_neto %}
+        <div class="col-md-3">
+            <div class="card card-custom p-3 bg-white border-success">
+                <div class="kpi-title text-success">Monto Neto Calculado</div>
+                <div class="kpi-value text-success" id="kpiNeto">{{ kpis.monto_neto }}</div>
+                <span class="kpi-sub">SQL DuckDB al vuelo</span>
             </div>
         </div>
+        {% endif %}
+
+        {% if kpis.total_registros %}
+        <div class="col-md-3">
+            <div class="card card-custom p-3 bg-white">
+                <div class="kpi-title">Total Remisiones</div>
+                <div class="kpi-value" id="kpiRegistros">{{ kpis.total_registros }}</div>
+                <span class="kpi-sub">Registros Procesados</span>
+            </div>
+        </div>
+        {% endif %}
     </div>
+    {% endif %}
 
     <!-- GRÁFICOS -->
     <div class="row">
         <div class="col-md-6 mb-4">
             <div class="card card-custom p-3 bg-white h-100">
-                <h6 class="fw-bold text-muted mb-3">DISTRIBUCIÓN POR CATEGORÍA / PRODUCTO</h6>
+                <h6 class="fw-bold text-muted mb-3">PARTICIPACIÓN POR PRODUCTO</h6>
                 <canvas id="chartProductos"></canvas>
             </div>
         </div>
         <div class="col-md-6 mb-4">
             <div class="card card-custom p-3 bg-white h-100">
-                <h6 class="fw-bold text-muted mb-3">TENDENCIA MENSUAL</h6>
+                <h6 class="fw-bold text-muted mb-3">TENDENCIA MENSUAL DE VENTAS</h6>
                 <canvas id="chartMeses"></canvas>
             </div>
         </div>
@@ -112,10 +158,10 @@ let chartProductos = null;
 const ctxMeses = document.getElementById('chartMeses').getContext('2d');
 const ctxProductos = document.getElementById('chartProductos').getContext('2d');
 
-const initialLabelsMes = {{ json_labels_mes | safe }};
-const initialValoresMes = {{ json_valores_mes | safe }};
-const initialLabelsProd = {{ json_labels_prod | safe }};
-const initialValoresProd = {{ json_valores_prod | safe }};
+const initialLabelsMes = {{ json_labels_mes | safe if json_labels_mes else '[]' }};
+const initialValoresMes = {{ json_valores_mes | safe if json_valores_mes else '[]' }};
+const initialLabelsProd = {{ json_labels_prod | safe if json_labels_prod else '[]' }};
+const initialValoresProd = {{ json_valores_prod | safe if json_valores_prod else '[]' }};
 
 function renderChartMeses(labels, data) {
     if (chartMeses) chartMeses.destroy();
@@ -129,8 +175,7 @@ function renderChartMeses(labels, data) {
                 borderColor: '#581870',
                 backgroundColor: 'rgba(88, 24, 112, 0.1)',
                 fill: true,
-                tension: 0.3,
-                pointRadius: 4
+                tension: 0.3
             }]
         },
         options: { responsive: true, plugins: { legend: { display: false } } }
@@ -152,25 +197,29 @@ function renderChartProductos(labels, data) {
     });
 }
 
-if (initialLabelsMes && initialLabelsMes.length > 0) renderChartMeses(initialLabelsMes, initialValoresMes);
-if (initialLabelsProd && initialLabelsProd.length > 0) renderChartProductos(initialLabelsProd, initialValoresProd);
+if (initialLabelsMes.length > 0) renderChartMeses(initialLabelsMes, initialValoresMes);
+if (initialLabelsProd.length > 0) renderChartProductos(initialLabelsProd, initialValoresProd);
 
-document.querySelectorAll('#selectEstacion, #selectAnio, #selectProducto').forEach(select => {
+document.querySelectorAll('.filtro-control').forEach(select => {
     select.addEventListener('change', function() {
+        const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : null;
+
         fetch('/api/filtrar-analisis', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                estacion: document.getElementById('selectEstacion').value,
-                anio: document.getElementById('selectAnio').value,
-                producto: document.getElementById('selectProducto').value
+                estacion: getVal('selectEstacion'),
+                anio: getVal('selectAnio'),
+                mes: getVal('selectMes'),
+                producto: getVal('selectProducto')
             })
         })
         .then(res => res.json())
         .then(data => {
-            document.getElementById('kpiTotal').innerText = data.kpi_total;
-            document.getElementById('kpiRemisiones').innerText = data.kpi_remisiones;
-            document.getElementById('kpiPromedio').innerText = data.kpi_promedio;
+            if (document.getElementById('kpiTotal')) document.getElementById('kpiTotal').innerText = data.kpi_total;
+            if (document.getElementById('kpiGalones')) document.getElementById('kpiGalones').innerText = data.kpi_galones;
+            if (document.getElementById('kpiNeto')) document.getElementById('kpiNeto').innerText = data.kpi_neto;
+            if (document.getElementById('kpiRegistros')) document.getElementById('kpiRegistros').innerText = data.kpi_registros;
 
             renderChartMeses(data.labels_mes, data.valores_mes);
             renderChartProductos(data.labels_prod, data.valores_prod);
