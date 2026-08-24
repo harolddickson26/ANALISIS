@@ -13,6 +13,7 @@
 <body>
 
 <div class="container py-4">
+    <!-- Encabezado Principal -->
     <div class="header-box d-flex justify-content-between align-items-center mb-4">
         <div>
             <span class="badge bg-warning text-dark mb-1">PASO 3 DE 4</span>
@@ -25,7 +26,7 @@
         </div>
     </div>
 
-    <!-- Indicadores Principales -->
+    <!-- Indicadores Principales (KPIs) -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="card card-kpi bg-primary text-white p-3">
@@ -49,8 +50,41 @@
             </div>
         </div>
     </div>
-</div>
-<!-- Resúmenes por Selección (Top 5 Estaciones y Productos) -->
+
+    <!-- TABLA DE DESGLOSE POR MESES -->
+    {% if meses %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card card-kpi p-3 bg-white">
+                <h5 class="fw-bold mb-3 text-dark">📅 Comportamiento Mensual</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mes (Año-Mes)</th>
+                                <th class="text-end">Monto Total ($)</th>
+                                <th class="text-end">Cantidad / Galones</th>
+                                <th class="text-end">Registros</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in meses %}
+                            <tr>
+                                <td class="fw-bold text-dark">{{ m[0] if m[0] else 'Sin Fecha' }}</td>
+                                <td class="text-end fw-bold text-primary">${{ "{:,.2f}".format(m[1] if m[1] else 0) }}</td>
+                                <td class="text-end fw-bold text-success">{{ "{:,.2f}".format(m[2] if m[2] else 0) }}</td>
+                                <td class="text-end text-muted">{{ "{:,}".format(m[3] if m[3] else 0) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resúmenes por Selección (Top 5 Estaciones y Productos) -->
     <div class="row g-4">
         {% if estaciones %}
         <div class="col-md-6">
@@ -104,5 +138,8 @@
         </div>
         {% endif %}
     </div>
+
+</div>
+
 </body>
 </html>

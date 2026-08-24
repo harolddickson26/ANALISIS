@@ -112,6 +112,7 @@ def paso2_columnas():
     )
 
 # PASO 3: Resumen y Dashboard
+# PASO 3: Resumen y Dashboard con desglose por Mes
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -124,7 +125,6 @@ def dashboard():
     df = DATA_STORE[user_key]['df']
     mapeo = DATA_STORE[user_key]['mapeo_columnas']
 
-    # Registro en DuckDB
     con = duckdb.connect()
     con.register("tabla_excel", df)
 
@@ -132,8 +132,9 @@ def dashboard():
     col_cantidad = f'"{mapeo["cantidad"]}"' if mapeo.get("cantidad") else "0"
     col_estacion = f'"{mapeo["estacion"]}"' if mapeo.get("estacion") else "NULL"
     col_producto = f'"{mapeo["producto"]}"' if mapeo.get("producto") else "NULL"
+    col_fecha = f'"{mapeo["fecha"]}"' if mapeo.get("fecha") else "NULL"
 
-    # Consulta de KPIs Generales
+    # KPIs Generales
     query_kpis = f"""
         SELECT 
             COALESCE(SUM(TRY_CAST({col_monto} AS DOUBLE)), 0) as total_monto,
@@ -143,7 +144,37 @@ def dashboard():
     """
     res_kpis = con.execute(query_kpis).fetchone()
 
-    # Resumen por Estación / Sede
+    # Resumen por Mes
+    resumen_meses = []
+    if mapeo.get("fecha"):
+        q_mes = f"""
+            SELECT 
+                STRFTIME(TRY_CAST({col_fecha} AS DATE), '%Y-%m') as mes,
+                SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto,
+                SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad,
+                COUNT(*) as registros
+            FROM tabla_excel
+            WHERE TRY_CAST({col_fecha} AS DATE) IS NOT NULL
+            GROUP BY mes
+            ORDER BY mes ASC
+        """
+        try:
+            resumen_meses = con.execute(q_mes).fetchall()
+        except Exception:
+            # Resguardo si las fechas vienen con hora o texto mixto
+            q_mes_fallback = f"""
+                SELECT 
+                    STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes,
+                    SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto,
+                    SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad,
+                    COUNT(*) as registros
+                FROM tabla_excel
+                GROUP BY mes
+                ORDER BY mes ASC
+            """
+            resumen_meses = con.execute(q_mes_fallback).fetchall()
+
+    # Top 5 Estaciones
     resumen_estaciones = []
     if mapeo.get("estacion"):
         q_est = f"""
@@ -157,7 +188,7 @@ def dashboard():
         """
         resumen_estaciones = con.execute(q_est).fetchall()
 
-    # Resumen por Producto
+    # Top 5 Productos
     resumen_productos = []
     if mapeo.get("producto"):
         q_prod = f"""
@@ -180,6 +211,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         kpis=kpis,
+        meses=resumen_meses,
         estaciones=resumen_estaciones,
         productos=resumen_productos,
         filename=DATA_STORE[user_key]['filename'],
