@@ -76,17 +76,6 @@
                         </select>
                     </div>
 
-                    <!-- Desplegable: Precio -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold text-dark">🏷️ Columna de Precio:</label>
-                        <select name="col_precio" class="form-select border-secondary">
-                            <option value="">-- Selecciona una columna --</option>
-                            {% for col in columnas %}
-                                <option value="{{ col }}" {% if 'precio' in col.lower() %}selected{% endif %}>{{ col }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
                     <!-- Desplegable: Incremento -->
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-dark">📈 Columna de Incremento:</label>

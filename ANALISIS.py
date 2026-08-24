@@ -96,7 +96,6 @@ def paso2_columnas():
         DATA_STORE[user_key]['mapeo_columnas'] = {
             'monto': request.form.get("col_monto"),
             'cantidad': request.form.get("col_cantidad"),
-            'precio': request.form.get("col_precio"),
             'incremento': request.form.get("col_incremento"),
             'fecha': request.form.get("col_fecha"),
             'estacion': request.form.get("col_estacion"),
