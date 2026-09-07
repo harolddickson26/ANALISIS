@@ -2,107 +2,108 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Paso 2: Mapeo de Columnas Dinámico</title>
+    <title>Paso 2: Drag and Drop de Columnas</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f6f9; }
         .header-box { background: #581870; color: white; border-radius: 10px; padding: 20px; }
-        .drag-box {
-            min-height: 220px;
+        
+        /* Cajas de soltar (Dropzones) */
+        .dropzone {
+            min-height: 120px;
             background: #ffffff;
             border: 2px dashed #cbd5e1;
-            border-radius: 10px;
-            padding: 15px;
+            border-radius: 8px;
+            padding: 10px;
+            transition: background-color 0.2s ease;
         }
+        .dropzone.dragover { background-color: #e2e8f0; border-color: #94a3b8; }
+
+        /* Etiquetas de columnas */
         .drag-item {
-            background: #e2e8f0;
-            color: #1e293b;
+            background-color: #3b82f6;
+            color: white;
             padding: 8px 12px;
-            margin-bottom: 8px;
+            margin: 4px;
             border-radius: 6px;
             cursor: grab;
             font-weight: 500;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: inline-block;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .drag-item:active { cursor: grabbing; }
-        .badge-kpi { background-color: #059669; color: white; }
-        .badge-cat { background-color: #2563eb; color: white; }
+        .drag-item:active { cursor: grabbing; opacity: 0.6; }
+        .source-box { min-height: 150px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; }
     </style>
 </head>
 <body>
 
-<div class="container py-4" style="max-width: 1000px;">
+<div class="container py-4" style="max-width: 1100px;">
     <div class="header-box mb-4 text-center">
         <span class="badge bg-warning text-dark mb-2">PASO 2 DE 4</span>
-        <h3 class="fw-bold m-0">⚙️ Asignación Estructurada de Variables</h3>
-        <small class="text-white-50">Arrastra o selecciona las columnas detectadas en tu Excel hacia su respectiva categoría</small>
+        <h3 class="fw-bold m-0">⚙️ Arrastra las Columnas a su Destino</h3>
+        <small class="text-white-50">Arrastra cada elemento desde la lista general hacia la casilla correspondiente</small>
+    </div>
+
+    <!-- LISTA ORIGEN: TODAS LAS COLUMNAS DETECTADAS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white fw-bold text-dark">
+            📋 Columnas Detectadas en el Archivo (Lista General)
+        </div>
+        <div class="card-body source-box dropzone" id="source-zone">
+            {% for col in columnas %}
+                <div class="drag-item" draggable="true" data-col="{{ col }}">{{ col }}</div>
+            {% endfor %}
+        </div>
     </div>
 
     <form action="/paso2-columnas" method="POST" id="form-mapeo">
         
+        <!-- ENTRADAS OCULTAS PARA ENVIAR A FLASK -->
+        <input type="hidden" name="col_kpi_1" id="input_col_kpi_1">
+        <input type="hidden" name="col_kpi_2" id="input_col_kpi_2">
+        <input type="hidden" name="col_categoria_1" id="input_col_categoria_1">
+        <input type="hidden" name="col_fecha" id="input_col_fecha">
+
         <div class="row g-4">
-            <!-- COLUMNA 1: MÉTRICAS / KPIS -->
+            <!-- PANEL MÉTRICAS / KPIS -->
             <div class="col-md-6">
                 <div class="card shadow-sm border-0 h-100">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="fw-bold text-success m-0">📊 Columnas para Métricas / KPIs</h5>
-                        <small class="text-muted">Valores numéricos para sumar, promediar o calcular KPIs</small>
+                    <div class="card-header bg-white fw-bold text-success">
+                        📊 Métricas / KPIs (Numéricos)
                     </div>
                     <div class="card-body">
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">1. Métrica Principal / KPI 1 (Obligatorio):</label>
-                            <select name="col_kpi_1" class="form-select" required>
-                                <option value="" disabled selected>-- Selecciona la métrica clave --</option>
-                                {% for col in columnas %}
-                                    <option value="{{ col }}">{{ col }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label fw-bold text-dark">1. Métrica Principal / KPI 1 (Obligatorio):</label>
+                            <div class="dropzone" id="zone_kpi_1" data-target="input_col_kpi_1" data-max="1"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">2. Métrica Secundaria / KPI 2 (Opcional):</label>
-                            <select name="col_kpi_2" class="form-select">
-                                <option value="">-- Opcional --</option>
-                                {% for col in columnas %}
-                                    <option value="{{ col }}">{{ col }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label fw-bold text-dark">2. Métrica Secundaria / KPI 2 (Opcional):</label>
+                            <div class="dropzone" id="zone_kpi_2" data-target="input_col_kpi_2" data-max="1"></div>
                         </div>
 
                     </div>
                 </div>
             </div>
 
-            <!-- COLUMNA 2: CATEGORÍAS Y DIMENSIONES -->
+            <!-- PANEL CATEGORÍAS Y TIEMPO -->
             <div class="col-md-6">
                 <div class="card shadow-sm border-0 h-100">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="fw-bold text-primary m-0">🏷️ Columnas para Categorías y Tiempo</h5>
-                        <small class="text-muted">Textos o fechas para agrupar gráficos y tendencias</small>
+                    <div class="card-header bg-white fw-bold text-primary">
+                        🏷️ Categorías y Fechas (Ejes / Agrupaciones)
                     </div>
                     <div class="card-body">
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">3. Dimensión / Categoría (Eje X / Grupos):</label>
-                            <select name="col_categoria_1" class="form-select">
-                                <option value="">-- Opcional --</option>
-                                {% for col in columnas %}
-                                    <option value="{{ col }}">{{ col }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label fw-bold text-dark">3. Dimensión / Categoría (Eje X):</label>
+                            <div class="dropzone" id="zone_categoria_1" data-target="input_col_categoria_1" data-max="1"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">4. Dimensión Temporal (Fecha):</label>
-                            <select name="col_fecha" class="form-select">
-                                <option value="">-- Opcional --</option>
-                                {% for col in columnas %}
-                                    <option value="{{ col }}">{{ col }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label fw-bold text-dark">4. Dimensión Temporal (Fecha):</label>
+                            <div class="dropzone" id="zone_fecha" data-target="input_col_fecha" data-max="1"></div>
                         </div>
 
                     </div>
@@ -110,14 +111,70 @@
             </div>
         </div>
 
-        <!-- BOTONES DE ACCIÓN -->
-        <div class="d-flex justify-content-between align-items-center mt-4 pt-2">
+        <!-- BOTONES -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
             <a href="/cargar-excel" class="btn btn-outline-secondary">⬅️ Volver a cargar</a>
             <button type="submit" class="btn btn-success fw-bold px-4 btn-lg">Procesar y Generar Dashboard 📊</button>
         </div>
 
     </form>
 </div>
+
+<script>
+    let draggedItem = null;
+
+    document.querySelectorAll('.drag-item').forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            draggedItem = item;
+            e.dataTransfer.setData('text/plain', item.dataset.col);
+        });
+    });
+
+    document.querySelectorAll('.dropzone').forEach(zone => {
+        zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+
+        zone.addEventListener('dragleave', () => {
+            zone.classList.remove('dragover');
+        });
+
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+
+            if (!draggedItem) return;
+
+            const max = zone.dataset.max;
+            
+            // Si la zona de destino solo acepta 1 elemento, regresamos el existente a la lista origen
+            if (max === "1" && zone.children.length >= 1) {
+                const existingItem = zone.children[0];
+                document.getElementById('source-zone').appendChild(existingItem);
+            }
+
+            zone.appendChild(draggedItem);
+            updateHiddenInputs();
+        });
+    });
+
+    function updateHiddenInputs() {
+        document.querySelectorAll('.dropzone[data-target]').forEach(zone => {
+            const targetInputId = zone.dataset.target;
+            const item = zone.querySelector('.drag-item');
+            document.getElementById(targetInputId).value = item ? item.dataset.col : '';
+        });
+    }
+
+    document.getElementById('form-mapeo').addEventListener('submit', (e) => {
+        const kpi1 = document.getElementById('input_col_kpi_1').value;
+        if (!kpi1) {
+            e.preventDefault();
+            alert('Por favor arrastra al menos una columna a "Métrica Principal / KPI 1"');
+        }
+    });
+</script>
 
 </body>
 </html>
