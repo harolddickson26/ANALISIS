@@ -1,5 +1,4 @@
 import os
-import io
 import gc
 import duckdb
 import pandas as pd
@@ -11,7 +10,6 @@ app.secret_key = "clave_secreta_analisis_app"
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
 
-# Carpeta para archivos temporales
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -59,11 +57,9 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    # Guardar archivo en disco local para no agotar la memoria RAM
                     file_path = os.path.join(UPLOAD_FOLDER, f"{user_key}_{file.filename}")
                     file.save(file_path)
 
-                    # Leer solo las primeras 5 filas para extraer encabezados super rápido
                     engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
                     df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
                     columnas = [str(col).strip() for col in df_preview.columns]
@@ -86,7 +82,7 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Selección de columnas
+# PASO 2: Selección dinámicas de métricas y categorías
 @app.route("/paso2-columnas", methods=["GET", "POST"])
 def paso2_columnas():
     if not session.get("usuario"):
@@ -100,12 +96,10 @@ def paso2_columnas():
 
     if request.method == "POST":
         DATA_STORE[user_key]['mapeo_columnas'] = {
-            'monto': request.form.get("col_monto"),
-            'cantidad': request.form.get("col_cantidad"),
-            'incremento': request.form.get("col_incremento"),
-            'fecha': request.form.get("col_fecha"),
-            'estacion': request.form.get("col_estacion"),
-            'producto': request.form.get("col_producto")
+            'kpi_1': request.form.get("col_kpi_1"),
+            'kpi_2': request.form.get("col_kpi_2"),
+            'categoria_1': request.form.get("col_categoria_1"),
+            'fecha': request.form.get("col_fecha")
         }
         return redirect(url_for("dashboard"))
 
@@ -116,7 +110,7 @@ def paso2_columnas():
         total_columnas=len(data['columnas'])
     )
 
-# PASO 3: Dashboard con DuckDB + Listas para Gráficos
+# PASO 3: Dashboard dinámico con DuckDB
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -130,7 +124,6 @@ def dashboard():
     file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
 
-    # Cargar solo columnas necesarias en Pandas para la consulta
     cols_a_cargar = list({v for v in mapeo.values() if v and v != "None"})
 
     try:
@@ -147,30 +140,59 @@ def dashboard():
     con = duckdb.connect()
     con.register("tabla_excel", df)
 
-    col_monto = f'"{mapeo["monto"]}"' if mapeo.get("monto") else "0"
-    col_cantidad = f'"{mapeo["cantidad"]}"' if mapeo.get("cantidad") else "0"
-    col_estacion = f'"{mapeo["estacion"]}"' if mapeo.get("estacion") else "NULL"
-    col_producto = f'"{mapeo["producto"]}"' if mapeo.get("producto") else "NULL"
+    col_kpi1 = f'"{mapeo["kpi_1"]}"' if mapeo.get("kpi_1") else "0"
+    col_kpi2 = f'"{mapeo["kpi_2"]}"' if mapeo.get("kpi_2") else "0"
+    col_cat1 = f'"{mapeo["categoria_1"]}"' if mapeo.get("categoria_1") else "NULL"
     col_fecha = f'"{mapeo["fecha"]}"' if mapeo.get("fecha") else "NULL"
 
-    # KPIs Generales
+    # 1. KPIs Generales
     query_kpis = f"""
         SELECT 
-            COALESCE(SUM(TRY_CAST({col_monto} AS DOUBLE)), 0) as total_monto,
-            COALESCE(SUM(TRY_CAST({col_cantidad} AS DOUBLE)), 0) as total_cantidad,
+            COALESCE(SUM(TRY_CAST({col_kpi1} AS DOUBLE)), 0) as total_kpi1,
+            COALESCE(SUM(TRY_CAST({col_kpi2} AS DOUBLE)), 0) as total_kpi2,
             COUNT(*) as total_registros
         FROM tabla_excel
     """
     res_kpis = con.execute(query_kpis).fetchone()
 
-    # Resumen por Mes
+    kpis = {
+        'nombre_kpi1': mapeo.get("kpi_1") or "Métrica 1",
+        'val_kpi1': f"{res_kpis[0]:,.2f}",
+        'nombre_kpi2': mapeo.get("kpi_2") or "Métrica 2",
+        'val_kpi2': f"{res_kpis[1]:,.2f}",
+        'total_registros': f"{res_kpis[2]:,}"
+    }
+
+    # 2. Agrupación por Categoría / Dimensión seleccionada (Top 10)
+    chart_cat_labels = []
+    chart_cat_data = []
+
+    if mapeo.get("categoria_1") and mapeo.get("kpi_1"):
+        q_cat = f"""
+            SELECT 
+                CAST({col_cat1} AS VARCHAR) as categoria, 
+                SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total
+            FROM tabla_excel
+            WHERE {col_cat1} IS NOT NULL
+            GROUP BY categoria
+            ORDER BY total DESC
+            LIMIT 10
+        """
+        res_cat = con.execute(q_cat).fetchall()
+        chart_cat_labels = [str(r[0]) for r in res_cat]
+        chart_cat_data = [float(r[1]) if r[1] else 0.0 for r in res_cat]
+
+    # 3. Resumen por Mes
     resumen_meses = []
-    if mapeo.get("fecha"):
+    chart_meses_labels = []
+    chart_meses_data = []
+
+    if mapeo.get("fecha") and mapeo.get("kpi_1"):
         q_mes = f"""
             SELECT 
                 STRFTIME(TRY_CAST({col_fecha} AS DATE), '%Y-%m') as mes,
-                SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto,
-                SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad,
+                SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total_kpi1,
+                SUM(TRY_CAST({col_kpi2} AS DOUBLE)) as total_kpi2,
                 COUNT(*) as registros
             FROM tabla_excel
             WHERE TRY_CAST({col_fecha} AS DATE) IS NOT NULL
@@ -179,66 +201,26 @@ def dashboard():
         """
         try:
             resumen_meses = con.execute(q_mes).fetchall()
+            chart_meses_labels = [str(r[0]) if r[0] else 'Sin Fecha' for r in resumen_meses]
+            chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
         except Exception:
             q_mes_fallback = f"""
                 SELECT 
                     STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes,
-                    SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto,
-                    SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad,
+                    SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total_kpi1,
+                    SUM(TRY_CAST({col_kpi2} AS DOUBLE)) as total_kpi2,
                     COUNT(*) as registros
                 FROM tabla_excel
                 GROUP BY mes
                 ORDER BY mes ASC
             """
-            resumen_meses = con.execute(q_mes_fallback).fetchall()
+            try:
+                resumen_meses = con.execute(q_mes_fallback).fetchall()
+                chart_meses_labels = [str(r[0]) if r[0] else 'Sin Fecha' for r in resumen_meses]
+                chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
+            except Exception:
+                resumen_meses = []
 
-    # Top 5 Estaciones
-    resumen_estaciones = []
-    if mapeo.get("estacion"):
-        q_est = f"""
-            SELECT {col_estacion} as estacion, 
-                   SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto, 
-                   SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad
-            FROM tabla_excel
-            GROUP BY {col_estacion}
-            ORDER BY monto DESC
-            LIMIT 5
-        """
-        resumen_estaciones = con.execute(q_est).fetchall()
-
-    # Top 5 Productos
-    resumen_productos = []
-    if mapeo.get("producto"):
-        q_prod = f"""
-            SELECT {col_producto} as producto, 
-                   SUM(TRY_CAST({col_monto} AS DOUBLE)) as monto, 
-                   SUM(TRY_CAST({col_cantidad} AS DOUBLE)) as cantidad
-            FROM tabla_excel
-            GROUP BY {col_producto}
-            ORDER BY monto DESC
-            LIMIT 5
-        """
-        resumen_productos = con.execute(q_prod).fetchall()
-
-    kpis = {
-        'total_monto': f"${res_kpis[0]:,.2f}",
-        'total_cantidad': f"{res_kpis[1]:,.2f}",
-        'total_registros': f"{res_kpis[2]:,}"
-    }
-
-    # -------------------------------------------------------------
-    # PREPARACIÓN DE DATOS PARA GRAFICOS EN JS
-    # -------------------------------------------------------------
-    chart_meses_labels = [str(r[0]) for r in resumen_meses]
-    chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
-
-    chart_estaciones_labels = [str(r[0]) for r in resumen_estaciones]
-    chart_estaciones_data = [float(r[1]) if r[1] else 0.0 for r in resumen_estaciones]
-
-    chart_productos_labels = [str(r[0]) for r in resumen_productos]
-    chart_productos_data = [float(r[1]) if r[1] else 0.0 for r in resumen_productos]
-
-    # Limpieza explicita de RAM
     del df
     gc.collect()
 
@@ -246,17 +228,12 @@ def dashboard():
         "dashboard.html",
         kpis=kpis,
         meses=resumen_meses,
-        estaciones=resumen_estaciones,
-        productos=resumen_productos,
         filename=filename,
         mapeo=mapeo,
-        # Nuevas variables pasadas al HTML para los gráficos:
+        chart_cat_labels=chart_cat_labels,
+        chart_cat_data=chart_cat_data,
         chart_meses_labels=chart_meses_labels,
-        chart_meses_data=chart_meses_data,
-        chart_estaciones_labels=chart_estaciones_labels,
-        chart_estaciones_data=chart_estaciones_data,
-        chart_productos_labels=chart_productos_labels,
-        chart_productos_data=chart_productos_data
+        chart_meses_data=chart_meses_data
     )
 
 if __name__ == "__main__":
