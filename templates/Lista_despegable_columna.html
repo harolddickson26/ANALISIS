@@ -2,79 +2,121 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Paso 2: Selección de Columnas</title>
+    <title>Paso 2: Mapeo de Columnas Dinámico</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; }
-        .card-custom { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        body { background-color: #f4f6f9; }
         .header-box { background: #581870; color: white; border-radius: 10px; padding: 20px; }
+        .drag-box {
+            min-height: 220px;
+            background: #ffffff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .drag-item {
+            background: #e2e8f0;
+            color: #1e293b;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: grab;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .drag-item:active { cursor: grabbing; }
+        .badge-kpi { background-color: #059669; color: white; }
+        .badge-cat { background-color: #2563eb; color: white; }
     </style>
 </head>
 <body>
 
-<div class="container py-5" style="max-width: 700px;">
-    <!-- Encabezado -->
+<div class="container py-4" style="max-width: 1000px;">
     <div class="header-box mb-4 text-center">
         <span class="badge bg-warning text-dark mb-2">PASO 2 DE 4</span>
-        <h3 class="fw-bold m-0">⚙️ Configuración de KPIs y Métricas</h3>
-        <small class="text-white-50">Selecciona las columnas para generar tu dashboard</small>
+        <h3 class="fw-bold m-0">⚙️ Asignación Estructurada de Variables</h3>
+        <small class="text-white-50">Arrastra o selecciona las columnas detectadas en tu Excel hacia su respectiva categoría</small>
     </div>
 
-    <div class="card card-custom p-4 bg-white">
-        <form action="/paso2-columnas" method="POST">
-            
-            <!-- KPI 1 -->
-            <div class="mb-3">
-                <label for="col_kpi_1" class="form-label fw-bold">1. Selecciona la Métrica Principal / KPI 1 (Suma):</label>
-                <select name="col_kpi_1" id="col_kpi_1" class="form-select" required>
-                    <option value="" disabled selected>-- Selecciona una columna --</option>
-                    {% for col in columnas %}
-                        <option value="{{ col }}">{{ col }}</option>
-                    {% endfor %}
-                </select>
+    <form action="/paso2-columnas" method="POST" id="form-mapeo">
+        
+        <div class="row g-4">
+            <!-- COLUMNA 1: MÉTRICAS / KPIS -->
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="fw-bold text-success m-0">📊 Columnas para Métricas / KPIs</h5>
+                        <small class="text-muted">Valores numéricos para sumar, promediar o calcular KPIs</small>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">1. Métrica Principal / KPI 1 (Obligatorio):</label>
+                            <select name="col_kpi_1" class="form-select" required>
+                                <option value="" disabled selected>-- Selecciona la métrica clave --</option>
+                                {% for col in columnas %}
+                                    <option value="{{ col }}">{{ col }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">2. Métrica Secundaria / KPI 2 (Opcional):</label>
+                            <select name="col_kpi_2" class="form-select">
+                                <option value="">-- Opcional --</option>
+                                {% for col in columnas %}
+                                    <option value="{{ col }}">{{ col }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
             </div>
 
-            <!-- KPI 2 -->
-            <div class="mb-3">
-                <label for="col_kpi_2" class="form-label fw-bold">2. Selecciona la Métrica Secundaria / KPI 2 (Suma/Cantidad):</label>
-                <select name="col_kpi_2" id="col_kpi_2" class="form-select">
-                    <option value="">-- Opcional --</option>
-                    {% for col in columnas %}
-                        <option value="{{ col }}">{{ col }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+            <!-- COLUMNA 2: CATEGORÍAS Y DIMENSIONES -->
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="fw-bold text-primary m-0">🏷️ Columnas para Categorías y Tiempo</h5>
+                        <small class="text-muted">Textos o fechas para agrupar gráficos y tendencias</small>
+                    </div>
+                    <div class="card-body">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">3. Dimensión / Categoría (Eje X / Grupos):</label>
+                            <select name="col_categoria_1" class="form-select">
+                                <option value="">-- Opcional --</option>
+                                {% for col in columnas %}
+                                    <option value="{{ col }}">{{ col }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-            <!-- Categoría 1 -->
-            <div class="mb-3">
-                <label for="col_categoria_1" class="form-label fw-bold">3. Dimensión / Categoría Principal (Eje X / Grupos):</label>
-                <select name="col_categoria_1" id="col_categoria_1" class="form-select">
-                    <option value="">-- Opcional --</option>
-                    {% for col in columnas %}
-                        <option value="{{ col }}">{{ col }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">4. Dimensión Temporal (Fecha):</label>
+                            <select name="col_fecha" class="form-select">
+                                <option value="">-- Opcional --</option>
+                                {% for col in columnas %}
+                                    <option value="{{ col }}">{{ col }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-            <!-- Fecha -->
-            <div class="mb-4">
-                <label for="col_fecha" class="form-label fw-bold">4. Dimensión Temporal (Fecha para tendencia):</label>
-                <select name="col_fecha" id="col_fecha" class="form-select">
-                    <option value="">-- Opcional --</option>
-                    {% for col in columnas %}
-                        <option value="{{ col }}">{{ col }}</option>
-                    {% endfor %}
-                </select>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <!-- BOTÓN DE ENVÍO AL PASO 3 -->
-            <div class="d-flex justify-content-between align-items-center pt-2">
-                <a href="/cargar-excel" class="btn btn-outline-secondary">⬅️ Volver a cargar</a>
-                <button type="submit" class="btn btn-success fw-bold px-4 btn-lg">Generar Dashboard 📊</button>
-            </div>
+        <!-- BOTONES DE ACCIÓN -->
+        <div class="d-flex justify-content-between align-items-center mt-4 pt-2">
+            <a href="/cargar-excel" class="btn btn-outline-secondary">⬅️ Volver a cargar</a>
+            <button type="submit" class="btn btn-success fw-bold px-4 btn-lg">Procesar y Generar Dashboard 📊</button>
+        </div>
 
-        </form>
-    </div>
+    </form>
 </div>
 
 </body>
