@@ -61,7 +61,11 @@ def cargar_excel():
                     file.save(file_path)
 
                     engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
-                    df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
+                    try:
+                        df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
+                    except Exception:
+                        df_preview = pd.read_excel(file_path, nrows=5)
+
                     columnas = [str(col).strip() for col in df_preview.columns]
 
                     DATA_STORE[user_key] = {
@@ -82,7 +86,7 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Selección dinámicas de métricas y categorías
+# PASO 2: Selección dinámica con nombres exactos requeridos
 @app.route("/paso2-columnas", methods=["GET", "POST"])
 def paso2_columnas():
     if not session.get("usuario"):
@@ -96,10 +100,11 @@ def paso2_columnas():
 
     if request.method == "POST":
         DATA_STORE[user_key]['mapeo_columnas'] = {
-            'kpi_1': request.form.get("col_kpi_1"),
-            'kpi_2': request.form.get("col_kpi_2"),
-            'categoria_1': request.form.get("col_categoria_1"),
-            'fecha': request.form.get("col_fecha")
+            'col_gln': request.form.get("col_gln") or "CANT GLN",
+            'col_desc_galon': request.form.get("col_desc_galon") or "DESC X GALON",
+            'col_obsv': request.form.get("col_obsv") or "OBSV ADICIONAL",
+            'categoria_1': request.form.get("col_categoria_1") or "ANALISTA",
+            'fecha': request.form.get("col_fecha") or "MES ENVIO"
         }
         return redirect(url_for("dashboard"))
 
@@ -118,108 +123,134 @@ def dashboard():
 
     user_key = session.get("usuario", "DICKSON")
     if user_key not in DATA_STORE or 'mapeo_columnas' not in DATA_STORE[user_key]:
-        return redirect(url_for("cargar_excel"))
+        # Mapeo por defecto con los nombres exactos si no se han enviado por POST
+        DATA_STORE[user_key] = DATA_STORE.get(user_key, {})
+        DATA_STORE[user_key]['mapeo_columnas'] = {
+            'col_gln': "CANT GLN",
+            'col_desc_galon': "DESC X GALON",
+            'col_obsv': "OBSV ADICIONAL",
+            'categoria_1': "ANALISTA",
+            'fecha': "MES ENVIO"
+        }
 
     mapeo = DATA_STORE[user_key]['mapeo_columnas']
     file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
 
-    cols_a_cargar = list({v for v in mapeo.values() if v and v != "None"})
+    # Asignación explícita de nombres de columnas exactos entre comillas
+    nombre_col_gln = "CANT GLN"
+    nombre_col_desc_galon = "DESC X GALON"
+    nombre_col_obsv = "OBSV ADICIONAL"
+    nombre_col_cat1 = "ANALISTA"
+    nombre_col_fecha = "MES ENVIO"
+
+    cols_a_cargar = [
+        nombre_col_gln,
+        nombre_col_desc_galon,
+        nombre_col_obsv,
+        nombre_col_cat1,
+        nombre_col_fecha
+    ]
 
     try:
         engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
-        if cols_a_cargar:
-            df = pd.read_excel(file_path, engine=engine_type, usecols=cols_a_cargar)
-        else:
+        try:
             df = pd.read_excel(file_path, engine=engine_type)
+        except Exception:
+            df = pd.read_excel(file_path)
         
+        # Limpieza ligera de espacios en las cabeceras
         df.columns = [str(col).strip() for col in df.columns]
+
     except Exception as e:
         return f"Error al procesar el archivo: {str(e)}"
 
     con = duckdb.connect()
     con.register("tabla_excel", df)
 
-    col_kpi1 = f'"{mapeo["kpi_1"]}"' if mapeo.get("kpi_1") else "0"
-    col_kpi2 = f'"{mapeo["kpi_2"]}"' if mapeo.get("kpi_2") else "0"
-    col_cat1 = f'"{mapeo["categoria_1"]}"' if mapeo.get("categoria_1") else "NULL"
-    col_fecha = f'"{mapeo["fecha"]}"' if mapeo.get("fecha") else "NULL"
+    # Definición de columnas entre comillas dobles para DuckDB
+    col_gln = f'"{nombre_col_gln}"'
+    col_desc_galon = f'"{nombre_col_desc_galon}"'
+    col_obsv = f'"{nombre_col_obsv}"'
+    col_cat1 = f'"{nombre_col_cat1}"'
+    col_fecha = f'"{nombre_col_fecha}"'
 
     # 1. KPIs Generales
     query_kpis = f"""
         SELECT 
-            COALESCE(SUM(TRY_CAST({col_kpi1} AS DOUBLE)), 0) as total_kpi1,
-            COALESCE(SUM(TRY_CAST({col_kpi2} AS DOUBLE)), 0) as total_kpi2,
+            COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
+            COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as total_desc_galon,
+            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as total_obsv,
+            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as gran_total_desc,
             COUNT(*) as total_registros
         FROM tabla_excel
     """
     res_kpis = con.execute(query_kpis).fetchone()
 
     kpis = {
-        'nombre_kpi1': mapeo.get("kpi_1") or "Métrica 1",
-        'val_kpi1': f"{res_kpis[0]:,.2f}",
-        'nombre_kpi2': mapeo.get("kpi_2") or "Métrica 2",
-        'val_kpi2': f"{res_kpis[1]:,.2f}",
-        'total_registros': f"{res_kpis[2]:,}"
+        'total_gln': f"{res_kpis[0]:,.2f}",
+        'total_desc_galon': f"{res_kpis[1]:,.2f}",
+        'total_obsv': f"{res_kpis[2]:,.2f}",
+        'gran_total_desc': f"{res_kpis[3]:,.2f}",
+        'total_registros': f"{res_kpis[4]:,}"
     }
 
-    # 2. Agrupación por Categoría / Dimensión seleccionada (Top 10)
+    # 2. Resumen por "ANALISTA" y "MES ENVIO"
+    resumen_tabla = []
+    q_tabla = f"""
+        SELECT 
+            CAST({col_cat1} AS VARCHAR) as analista,
+            STRFTIME(TRY_CAST({col_fecha} AS DATE), '%Y-%m') as mes_envio,
+            SUM(TRY_CAST({col_gln} AS DOUBLE)) as total_gln,
+            SUM(TRY_CAST({col_desc_galon} AS DOUBLE)) as sum_desc_galon,
+            SUM(TRY_CAST({col_obsv} AS DOUBLE)) as sum_obsv,
+            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
+        FROM tabla_excel
+        WHERE {col_fecha} IS NOT NULL
+        GROUP BY analista, mes_envio
+        ORDER BY mes_envio ASC, analista ASC
+    """
+    try:
+        resumen_tabla = con.execute(q_tabla).fetchall()
+    except Exception:
+        # Reintento si la fecha viene en formato string largo
+        q_tabla_fallback = f"""
+            SELECT 
+                CAST({col_cat1} AS VARCHAR) as analista,
+                STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes_envio,
+                SUM(TRY_CAST({col_gln} AS DOUBLE)) as total_gln,
+                SUM(TRY_CAST({col_desc_galon} AS DOUBLE)) as sum_desc_galon,
+                SUM(TRY_CAST({col_obsv} AS DOUBLE)) as sum_obsv,
+                (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
+            FROM tabla_excel
+            GROUP BY analista, mes_envio
+            ORDER BY mes_envio ASC, analista ASC
+        """
+        try:
+            resumen_tabla = con.execute(q_tabla_fallback).fetchall()
+        except Exception:
+            resumen_tabla = []
+
+    # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
     chart_cat_labels = []
     chart_cat_data = []
 
-    if mapeo.get("categoria_1") and mapeo.get("kpi_1"):
-        q_cat = f"""
-            SELECT 
-                CAST({col_cat1} AS VARCHAR) as categoria, 
-                SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total
-            FROM tabla_excel
-            WHERE {col_cat1} IS NOT NULL
-            GROUP BY categoria
-            ORDER BY total DESC
-            LIMIT 10
-        """
+    q_cat = f"""
+        SELECT 
+            CAST({col_cat1} AS VARCHAR) as categoria, 
+            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total
+        FROM tabla_excel
+        WHERE {col_cat1} IS NOT NULL
+        GROUP BY categoria
+        ORDER BY total DESC
+        LIMIT 10
+    """
+    try:
         res_cat = con.execute(q_cat).fetchall()
         chart_cat_labels = [str(r[0]) for r in res_cat]
         chart_cat_data = [float(r[1]) if r[1] else 0.0 for r in res_cat]
-
-    # 3. Resumen por Mes
-    resumen_meses = []
-    chart_meses_labels = []
-    chart_meses_data = []
-
-    if mapeo.get("fecha") and mapeo.get("kpi_1"):
-        q_mes = f"""
-            SELECT 
-                STRFTIME(TRY_CAST({col_fecha} AS DATE), '%Y-%m') as mes,
-                SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total_kpi1,
-                SUM(TRY_CAST({col_kpi2} AS DOUBLE)) as total_kpi2,
-                COUNT(*) as registros
-            FROM tabla_excel
-            WHERE TRY_CAST({col_fecha} AS DATE) IS NOT NULL
-            GROUP BY mes
-            ORDER BY mes ASC
-        """
-        try:
-            resumen_meses = con.execute(q_mes).fetchall()
-            chart_meses_labels = [str(r[0]) if r[0] else 'Sin Fecha' for r in resumen_meses]
-            chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
-        except Exception:
-            q_mes_fallback = f"""
-                SELECT 
-                    STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes,
-                    SUM(TRY_CAST({col_kpi1} AS DOUBLE)) as total_kpi1,
-                    SUM(TRY_CAST({col_kpi2} AS DOUBLE)) as total_kpi2,
-                    COUNT(*) as registros
-                FROM tabla_excel
-                GROUP BY mes
-                ORDER BY mes ASC
-            """
-            try:
-                resumen_meses = con.execute(q_mes_fallback).fetchall()
-                chart_meses_labels = [str(r[0]) if r[0] else 'Sin Fecha' for r in resumen_meses]
-                chart_meses_data = [float(r[1]) if r[1] else 0.0 for r in resumen_meses]
-            except Exception:
-                resumen_meses = []
+    except Exception:
+        pass
 
     del df
     gc.collect()
@@ -227,13 +258,11 @@ def dashboard():
     return render_template(
         "dashboard.html",
         kpis=kpis,
-        meses=resumen_meses,
+        registros=resumen_tabla,
         filename=filename,
         mapeo=mapeo,
         chart_cat_labels=chart_cat_labels,
-        chart_cat_data=chart_cat_data,
-        chart_meses_labels=chart_meses_labels,
-        chart_meses_data=chart_meses_data
+        chart_cat_data=chart_cat_data
     )
 
 if __name__ == "__main__":
