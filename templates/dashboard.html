@@ -15,22 +15,26 @@
             <tbody>
                 {% for r in registros %}
                     <tr>
-                        <td class="fw-bold text-start">{{ r.analista }}</td>
-                        <td>{{ r.mes_envio }}</td>
-                        <td>{{ "{:,.2f}".format(r.total_gln) }} GLN</td>
-                        <td class="text-end">$ {{ "{:,.2f}".format(r.sum_desc_galon) }}</td>
-                        <td class="text-end">$ {{ "{:,.2f}".format(r.sum_observacion) }}</td>
-                        <td class="text-end fw-bold text-primary">$ {{ "{:,.2f}".format(r.total_descuento) }}</td>
+                        <td class="fw-bold text-start">{{ r[0] if r[0] else 'N/A' }}</td>
+                        <td>{{ r[1] if r[1] else 'N/A' }}</td>
+                        <td>{{ "{:,.2f}".format(r[2] if r[2] else 0) }} GLN</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(r[3] if r[3] else 0) }}</td>
+                        <td class="text-end">$ {{ "{:,.2f}".format(r[4] if r[4] else 0) }}</td>
+                        <td class="text-end fw-bold text-primary">$ {{ "{:,.2f}".format(r[5] if r[5] else 0) }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No se encontraron registros procesados.</td>
                     </tr>
                 {% endfor %}
             </tbody>
             <tfoot class="table-light fw-bold">
                 <tr>
                     <td colspan="2" class="text-start">TOTAL GENERAL</td>
-                    <td>{{ total_gln }} GLN</td>
-                    <td class="text-end">$ {{ total_desc_galon }}</td>
-                    <td class="text-end">$ {{ total_obs }}</td>
-                    <td class="text-end text-success">$ {{ total_descuentos }}</td>
+                    <td>{{ kpis.total_gln }} GLN</td>
+                    <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
+                    <td class="text-end">$ {{ kpis.total_obsv }}</td>
+                    <td class="text-end text-success">$ {{ kpis.gran_total_desc }}</td>
                 </tr>
             </tfoot>
         </table>
