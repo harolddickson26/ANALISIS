@@ -1,42 +1,172 @@
-<div class="card card-custom p-4 bg-white mb-4">
-    <h5 class="fw-bold text-dark mb-3">📋 Resumen de Descuentos por Analista y Mes</h5>
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle text-center m-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>Analista</th>
-                    <th>Mes Envío</th>
-                    <th>Total Galones</th>
-                    <th>Suma DESC X GALON ($)</th>
-                    <th>Suma OBSERVACION ($)</th>
-                    <th>Total Descuentos ($)</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for r in registros %}
-                    <tr>
-                        <td class="fw-bold text-start">{{ r[0] if r[0] else 'N/A' }}</td>
-                        <td>{{ r[1] if r[1] else 'N/A' }}</td>
-                        <td>{{ "{:,.2f}".format(r[2] if r[2] else 0) }} GLN</td>
-                        <td class="text-end">$ {{ "{:,.2f}".format(r[3] if r[3] else 0) }}</td>
-                        <td class="text-end">$ {{ "{:,.2f}".format(r[4] if r[4] else 0) }}</td>
-                        <td class="text-end fw-bold text-primary">$ {{ "{:,.2f}".format(r[5] if r[5] else 0) }}</td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">No se encontraron registros procesados.</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot class="table-light fw-bold">
-                <tr>
-                    <td colspan="2" class="text-start">TOTAL GENERAL</td>
-                    <td>{{ kpis.total_gln }} GLN</td>
-                    <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
-                    <td class="text-end">$ {{ kpis.total_obsv }}</td>
-                    <td class="text-end text-success">$ {{ kpis.gran_total_desc }}</td>
-                </tr>
-            </tfoot>
-        </table>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Análisis</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            background-color: #f8f9fa; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        .card-custom { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        .table-custom {
+            width: 100%;
+            margin-bottom: 0;
+            border-collapse: collapse;
+        }
+        .table-custom th {
+            background-color: #212529;
+            color: #ffffff;
+            font-weight: 600;
+            padding: 12px 15px;
+            border: 1px solid #32383e;
+        }
+        .table-custom td {
+            padding: 12px 15px;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        .table-custom tbody tr:nth-of-type(even) {
+            background-color: #f8f9fa;
+        }
+        .table-custom tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+        .table-custom tfoot tr {
+            background-color: #e9ecef;
+            font-weight: bold;
+            border-top: 2px solid #212529;
+        }
+        .table-custom tfoot td {
+            border: 1px solid #ced4da;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-dark m-0">📊 Dashboard de Análisis</h2>
+                <small class="text-muted">Archivo: {{ filename }}</small>
+            </div>
+            <div>
+                <a href="{{ url_for('cargar_excel') }}" class="btn btn-outline-primary btn-sm me-2">Subir otro Excel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <!-- Tarjetas KPIs -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">TOTAL GALONES</small>
+                    <h4 class="text-primary fw-bold mt-2 mb-0">{{ kpis.total_gln }} GLN</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">DESC X GALÓN</small>
+                    <h4 class="text-success fw-bold mt-2 mb-0">$ {{ kpis.total_desc_galon }}</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">OBSERVACIONES</small>
+                    <h4 class="text-warning fw-bold mt-2 mb-0">$ {{ kpis.total_obsv }}</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">GRAN TOTAL DESC</small>
+                    <h4 class="text-danger fw-bold mt-2 mb-0">$ {{ kpis.gran_total_desc }}</h4>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Estructurada con Bordes -->
+        <div class="card card-custom p-4 mb-4 bg-white">
+            <h5 class="fw-bold mb-3 text-secondary">📋 Resumen de Descuentos por Analista y Mes</h5>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Analista</th>
+                            <th>Mes Envío</th>
+                            <th class="text-end">Total Galones</th>
+                            <th class="text-end">Suma DESC X GALON ($)</th>
+                            <th class="text-end">Suma OBSERVACION ($)</th>
+                            <th class="text-end">Total Descuentos ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registros %}
+                        <tr>
+                            <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
+                            <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
+                            <td class="text-end">{{ "{:,.2f}".format(reg[2]) if reg[2] is not none else '0.00' }} GLN</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No se encontraron registros.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if registros %}
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" class="text-uppercase">TOTAL GENERAL</td>
+                            <td class="text-end">{{ kpis.total_gln }} GLN</td>
+                            <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
+                            <td class="text-end">$ {{ kpis.total_obsv }}</td>
+                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <!-- Gráfica de Barras -->
+        {% if chart_cat_labels %}
+        <div class="card card-custom p-4 bg-white">
+            <h5 class="fw-bold mb-3 text-secondary">📊 Top Analistas por Total Descuentos</h5>
+            <canvas id="chartCat" height="90"></canvas>
+        </div>
+        <script>
+            const ctx = document.getElementById('chartCat').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ chart_cat_labels | tojson }},
+                    datasets: [{
+                        label: 'Total Descuento ($)',
+                        data: {{ chart_cat_data | tojson }},
+                        backgroundColor: '#0d6efd',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        </script>
+        {% endif %}
+
     </div>
-</div>
+</body>
+</html>
