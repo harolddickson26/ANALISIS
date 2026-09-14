@@ -109,7 +109,7 @@ def dashboard():
     except Exception as e:
         return f"Error al procesar el archivo Excel: {str(e)}"
 
-    # Buscar columnas automáticamente
+    # Mapeo de columnas con soporte ampliado para OBSERVACIONES
     cols_existentes = {col.upper().strip(): col for col in df.columns}
     
     def buscar_col(lista_opciones):
@@ -125,6 +125,7 @@ def dashboard():
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
 
+    # Asegurar existencia de columnas y limpiar formato numérico (quitar $, comas, espacios)
     cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
     for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
         if col not in df.columns:
@@ -185,7 +186,7 @@ def dashboard():
     except Exception:
         pass
 
-    # 2. Resumen por ANALISTA y MES ENVIO
+    # 2. Resumen por "ANALISTA" y "MES ENVIO"
     resumen_tabla = []
     q_tabla = f"""
         SELECT 
@@ -204,7 +205,7 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos para Gráfica (Top 10 ANALISTA)
+    # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
     chart_cat_labels = []
     chart_cat_data = []
 

@@ -1,243 +1,172 @@
-import os
-import gc
-import duckdb
-import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, session
-
-app = Flask(__name__)
-app.secret_key = "clave_secreta_analisis_app"
-
-USUARIO_CORRECTO = "DICKSON"
-PASSWORD_CORRECTO = "1234"
-
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-DATA_STORE = {}
-
-@app.route("/")
-def inicio():
-    if session.get("usuario"):
-        return redirect(url_for("cargar_excel"))
-    return redirect(url_for("login"))
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        usuario_ingresado = request.form.get("username", "")
-        password_ingresado = request.form.get("password", "")
-
-        if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
-            session["usuario"] = usuario_ingresado
-            return redirect(url_for("cargar_excel"))
-        else:
-            error = "Usuario o contraseña incorrectos."
-    
-    return render_template("login.html", error=error)
-
-@app.route("/logout")
-def logout():
-    session.pop("usuario", None)
-    return redirect(url_for("login"))
-
-@app.route("/cargar-excel", methods=["GET", "POST"])
-def cargar_excel():
-    if not session.get("usuario"): 
-        return redirect(url_for("login"))
-    
-    error = None
-    user_key = session.get("usuario", "DICKSON")
-
-    if request.method == "POST":
-        if "archivo_excel" in request.files:
-            file = request.files["archivo_excel"]
-            if file.filename == "":
-                error = "Nombre de archivo no válido."
-            elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
-                try:
-                    file_path = os.path.join(UPLOAD_FOLDER, f"{user_key}_{file.filename}")
-                    file.save(file_path)
-
-                    engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
-                    try:
-                        df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
-                    except Exception:
-                        df_preview = pd.read_excel(file_path, nrows=5)
-
-                    columnas = [str(col).strip() for col in df_preview.columns]
-
-                    DATA_STORE[user_key] = {
-                        'file_path': file_path,
-                        'filename': file.filename,
-                        'columnas': columnas
-                    }
-                    
-                    del df_preview
-                    gc.collect()
-                    
-                    return redirect(url_for("dashboard"))
-
-                except Exception as e:
-                    error = f"Error al leer la estructura del Excel: {str(e)}"
-            else:
-                error = "Por favor, sube un archivo con extensión .xlsx o .xls."
-
-    return render_template("cargar_excel.html", error=error)
-
-@app.route("/dashboard")
-def dashboard():
-    if not session.get("usuario"):
-        return redirect(url_for("login"))
-
-    user_key = session.get("usuario", "DICKSON")
-    if user_key not in DATA_STORE:
-        return redirect(url_for("cargar_excel"))
-
-    file_path = DATA_STORE[user_key]['file_path']
-    filename = DATA_STORE[user_key]['filename']
-
-    try:
-        engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
-        try:
-            df = pd.read_excel(file_path, engine=engine_type)
-        except Exception:
-            df = pd.read_excel(file_path)
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Análisis</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            background-color: #f8f9fa; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        .card-custom { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        .table-custom {
+            width: 100%;
+            margin-bottom: 0;
+            border-collapse: collapse;
+        }
+        .table-custom th {
+            background-color: #212529;
+            color: #ffffff;
+            font-weight: 600;
+            padding: 12px 15px;
+            border: 1px solid #32383e;
+        }
+        .table-custom td {
+            padding: 12px 15px;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        .table-custom tbody tr:nth-of-type(even) {
+            background-color: #f8f9fa;
+        }
+        .table-custom tbody tr:hover {
+            background-color: #f1f3f5;
+        }
+        .table-custom tfoot tr {
+            background-color: #e9ecef;
+            font-weight: bold;
+            border-top: 2px solid #212529;
+        }
+        .table-custom tfoot td {
+            border: 1px solid #ced4da;
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
         
-        df.columns = [str(col).strip() for col in df.columns]
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-dark m-0">📊 Dashboard de Análisis</h2>
+                <small class="text-muted">Archivo: {{ filename }}</small>
+            </div>
+            <div>
+                <a href="{{ url_for('cargar_excel') }}" class="btn btn-outline-primary btn-sm me-2">Subir otro Excel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
 
-    except Exception as e:
-        return f"Error al procesar el archivo Excel: {str(e)}"
+        <!-- Tarjetas KPIs -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">TOTAL GALONES</small>
+                    <h4 class="text-primary fw-bold mt-2 mb-0">{{ kpis.total_gln }} GLN</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">DESC X GALÓN</small>
+                    <h4 class="text-success fw-bold mt-2 mb-0">$ {{ kpis.total_desc_galon }}</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">OBSERVACIONES</small>
+                    <h4 class="text-warning fw-bold mt-2 mb-0">$ {{ kpis.total_obsv }}</h4>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">GRAN TOTAL DESC</small>
+                    <h4 class="text-danger fw-bold mt-2 mb-0">$ {{ kpis.gran_total_desc }}</h4>
+                </div>
+            </div>
+        </div>
 
-    # Mapeo de columnas con soporte ampliado para OBSERVACIONES
-    cols_existentes = {col.upper().strip(): col for col in df.columns}
-    
-    def buscar_col(lista_opciones):
-        for opcion in lista_opciones:
-            for k, v in cols_existentes.items():
-                if opcion.upper() in k:
-                    return v
-        return None
+        <!-- Tabla Estructurada con Bordes -->
+        <div class="card card-custom p-4 mb-4 bg-white">
+            <h5 class="fw-bold mb-3 text-secondary">📋 Resumen de Descuentos por Analista y Mes</h5>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Analista</th>
+                            <th>Mes Envío</th>
+                            <th class="text-end">Total Galones</th>
+                            <th class="text-end">Suma DESC X GALON ($)</th>
+                            <th class="text-end">Suma OBSERVACION ($)</th>
+                            <th class="text-end">Total Descuentos ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registros %}
+                        <tr>
+                            <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
+                            <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
+                            <td class="text-end">{{ "{:,.2f}".format(reg[2]) if reg[2] is not none else '0.00' }} GLN</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No se encontraron registros.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if registros %}
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" class="text-uppercase">TOTAL GENERAL</td>
+                            <td class="text-end">{{ kpis.total_gln }} GLN</td>
+                            <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
+                            <td class="text-end">$ {{ kpis.total_obsv }}</td>
+                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
 
-    col_gln_real = buscar_col(["CANT GLN", "CANTIDAD", "GALON", "GLN"]) or "CANT GLN"
-    col_desc_real = buscar_col(["DESC X GALON", "DESCUENTO", "DESC"]) or "DESC X GALON"
-    col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
-    col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
-    col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
+        <!-- Gráfica de Barras -->
+        {% if chart_cat_labels %}
+        <div class="card card-custom p-4 bg-white">
+            <h5 class="fw-bold mb-3 text-secondary">📊 Top Analistas por Total Descuentos</h5>
+            <canvas id="chartCat" height="90"></canvas>
+        </div>
+        <script>
+            const ctx = document.getElementById('chartCat').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ chart_cat_labels | tojson }},
+                    datasets: [{
+                        label: 'Total Descuento ($)',
+                        data: {{ chart_cat_data | tojson }},
+                        backgroundColor: '#0d6efd',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        </script>
+        {% endif %}
 
-    # Asegurar existencia de columnas y limpiar formato numérico (quitar $, comas, espacios)
-    cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
-    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
-        if col not in df.columns:
-            df[col] = None
-
-    for col in cols_a_procesar:
-        if df[col].dtype == object:
-            df[col] = df[col].astype(str).str.replace('$', '', regex=False)
-            df[col] = df[col].str.replace(',', '', regex=False)
-            df[col] = df[col].str.strip()
-
-    mapeo = {
-        'col_gln': col_gln_real,
-        'col_desc_galon': col_desc_real,
-        'col_obsv': col_obsv_real,
-        'categoria_1': col_cat1_real,
-        'fecha': col_fecha_real
-    }
-    DATA_STORE[user_key]['mapeo_columnas'] = mapeo
-
-    con = duckdb.connect()
-    con.register("tabla_excel", df)
-
-    col_gln = f'"{col_gln_real}"'
-    col_desc_galon = f'"{col_desc_real}"'
-    col_obsv = f'"{col_obsv_real}"'
-    col_cat1 = f'"{col_cat1_real}"'
-    col_fecha = f'"{col_fecha_real}"'
-
-    kpis = {
-        'total_gln': "0.00",
-        'total_desc_galon': "0.00",
-        'total_obsv': "0.00",
-        'gran_total_desc': "0.00",
-        'total_registros': "0"
-    }
-
-    # 1. KPIs Generales
-    try:
-        query_kpis = f"""
-            SELECT 
-                COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
-                COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as total_desc_galon,
-                COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as total_obsv,
-                (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as gran_total_desc,
-                COUNT(*) as total_registros
-            FROM tabla_excel
-        """
-        res_kpis = con.execute(query_kpis).fetchone()
-        if res_kpis:
-            kpis = {
-                'total_gln': f"{res_kpis[0]:,.2f}",
-                'total_desc_galon': f"{res_kpis[1]:,.2f}",
-                'total_obsv': f"{res_kpis[2]:,.2f}",
-                'gran_total_desc': f"{res_kpis[3]:,.2f}",
-                'total_registros': f"{res_kpis[4]:,}"
-            }
-    except Exception:
-        pass
-
-    # 2. Resumen por "ANALISTA" y "MES ENVIO"
-    resumen_tabla = []
-    q_tabla = f"""
-        SELECT 
-            CAST({col_cat1} AS VARCHAR) as analista,
-            SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
-            COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
-            COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
-            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
-            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
-        FROM tabla_excel
-        GROUP BY analista, mes_envio
-        ORDER BY mes_envio ASC, analista ASC
-    """
-    try:
-        resumen_tabla = con.execute(q_tabla).fetchall()
-    except Exception:
-        resumen_tabla = []
-
-    # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
-    chart_cat_labels = []
-    chart_cat_data = []
-
-    q_cat = f"""
-        SELECT 
-            CAST({col_cat1} AS VARCHAR) as categoria, 
-            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total
-        FROM tabla_excel
-        WHERE {col_cat1} IS NOT NULL
-        GROUP BY categoria
-        ORDER BY total DESC
-        LIMIT 10
-    """
-    try:
-        res_cat = con.execute(q_cat).fetchall()
-        chart_cat_labels = [str(r[0]) if r[0] is not None else "N/A" for r in res_cat]
-        chart_cat_data = [float(r[1]) if r[1] else 0.0 for r in res_cat]
-    except Exception:
-        pass
-
-    del df
-    gc.collect()
-
-    return render_template(
-        "dashboard.html",
-        kpis=kpis,
-        registros=resumen_tabla,
-        filename=filename,
-        mapeo=mapeo,
-        chart_cat_labels=chart_cat_labels,
-        chart_cat_data=chart_cat_data
-    )
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    </div>
+</body>
+</html>
