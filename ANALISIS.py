@@ -181,12 +181,12 @@ def dashboard():
     except Exception:
         pass
 
-    # 2. Resumen por "ANALISTA" y "MES ENVIO"
+    # 2. Resumen por "ANALISTA" y "MES ENVIO" (Formateando la fecha a AAAA-MM)
     resumen_tabla = []
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
-            CAST({col_fecha} AS VARCHAR) as mes_envio,
+            SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
             COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
             COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
             COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
