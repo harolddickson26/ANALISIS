@@ -55,6 +55,7 @@
                 <small class="text-muted">Archivo: {{ filename }}</small>
             </div>
             <div>
+                <button onclick="descargarHTML()" class="btn btn-outline-success btn-sm me-2">📥 Descargar Dashboard (HTML)</button>
                 <a href="{{ url_for('cargar_excel') }}" class="btn btn-outline-primary btn-sm me-2">Subir otro Excel</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
             </div>
@@ -259,5 +260,28 @@
         {% endif %}
 
     </div>
+
+    <!-- Script para descargar informe HTML independiente -->
+    <script>
+        function descargarHTML() {
+            const docClone = document.documentElement.cloneNode(true);
+            
+            // Elimina los botones de la barra de navegación del informe generado
+            const botones = docClone.querySelectorAll('.btn');
+            botones.forEach(btn => btn.remove());
+
+            const htmlContent = "<!DOCTYPE html>\n" + docClone.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Dashboard_Analisis_' + new Date().toISOString().slice(0, 10) + '.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>
