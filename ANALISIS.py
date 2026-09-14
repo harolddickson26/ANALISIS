@@ -77,7 +77,6 @@ def cargar_excel():
                     del df_preview
                     gc.collect()
                     
-                    # Redirección directa al Dashboard omitiendo el Paso 2
                     return redirect(url_for("dashboard"))
 
                 except Exception as e:
@@ -87,7 +86,7 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Dashboard dinámico con DuckDB
+# PASO 2: Dashboard dinámico con DuckDB protegido
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -97,24 +96,8 @@ def dashboard():
     if user_key not in DATA_STORE:
         return redirect(url_for("cargar_excel"))
 
-    # Configuración de mapeo fijo por defecto
-    DATA_STORE[user_key]['mapeo_columnas'] = {
-        'col_gln': "CANT GLN",
-        'col_desc_galon': "DESC X GALON",
-        'col_obsv': "OBSV ADICIONAL",
-        'categoria_1': "ANALISTA",
-        'fecha': "MES ENVIO"
-    }
-
-    mapeo = DATA_STORE[user_key]['mapeo_columnas']
     file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
-
-    nombre_col_gln = "CANT GLN"
-    nombre_col_desc_galon = "DESC X GALON"
-    nombre_col_obsv = "OBSV ADICIONAL"
-    nombre_col_cat1 = "ANALISTA"
-    nombre_col_fecha = "MES ENVIO"
 
     try:
         engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
@@ -127,72 +110,95 @@ def dashboard():
         df.columns = [str(col).strip() for col in df.columns]
 
     except Exception as e:
-        return f"Error al procesar el archivo: {str(e)}"
+        return f"Error al procesar el archivo Excel: {str(e)}"
+
+    # Buscar columnas automáticamente coincidiendo sin importar espacios o mayúsculas
+    cols_existentes = {col.upper().strip(): col for col in df.columns}
+    
+    def buscar_col(nombre_buscado):
+        for k, v in cols_existentes.items():
+            if nombre_buscado.upper() in k:
+                return v
+        return None
+
+    col_gln_real = buscar_col("CANT GLN") or buscar_col("CANT") or "CANT GLN"
+    col_desc_real = buscar_col("DESC X GALON") or buscar_col("DESC") or "DESC X GALON"
+    col_obsv_real = buscar_col("OBSV ADICIONAL") or buscar_col("OBSV") or "OBSV ADICIONAL"
+    col_cat1_real = buscar_col("ANALISTA") or "ANALISTA"
+    col_fecha_real = buscar_col("MES ENVIO") or buscar_col("MES") or "MES ENVIO"
+
+    # Si alguna columna no está en el dataframe, crearla vacía para evitar error de SQL
+    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
+        if col not in df.columns:
+            df[col] = None
+
+    mapeo = {
+        'col_gln': col_gln_real,
+        'col_desc_galon': col_desc_real,
+        'col_obsv': col_obsv_real,
+        'categoria_1': col_cat1_real,
+        'fecha': col_fecha_real
+    }
+    DATA_STORE[user_key]['mapeo_columnas'] = mapeo
 
     con = duckdb.connect()
     con.register("tabla_excel", df)
 
-    # Nombres de columnas escapados para DuckDB
-    col_gln = f'"{nombre_col_gln}"'
-    col_desc_galon = f'"{nombre_col_desc_galon}"'
-    col_obsv = f'"{nombre_col_obsv}"'
-    col_cat1 = f'"{nombre_col_cat1}"'
-    col_fecha = f'"{nombre_col_fecha}"'
-
-    # 1. KPIs Generales
-    query_kpis = f"""
-        SELECT 
-            COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
-            COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as total_desc_galon,
-            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as total_obsv,
-            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as gran_total_desc,
-            COUNT(*) as total_registros
-        FROM tabla_excel
-    """
-    res_kpis = con.execute(query_kpis).fetchone()
+    col_gln = f'"{col_gln_real}"'
+    col_desc_galon = f'"{col_desc_real}"'
+    col_obsv = f'"{col_obsv_real}"'
+    col_cat1 = f'"{col_cat1_real}"'
+    col_fecha = f'"{col_fecha_real}"'
 
     kpis = {
-        'total_gln': f"{res_kpis[0]:,.2f}",
-        'total_desc_galon': f"{res_kpis[1]:,.2f}",
-        'total_obsv': f"{res_kpis[2]:,.2f}",
-        'gran_total_desc': f"{res_kpis[3]:,.2f}",
-        'total_registros': f"{res_kpis[4]:,}"
+        'total_gln': "0.00",
+        'total_desc_galon': "0.00",
+        'total_obsv': "0.00",
+        'gran_total_desc': "0.00",
+        'total_registros': "0"
     }
+
+    # 1. KPIs Generales
+    try:
+        query_kpis = f"""
+            SELECT 
+                COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
+                COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as total_desc_galon,
+                COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as total_obsv,
+                (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as gran_total_desc,
+                COUNT(*) as total_registros
+            FROM tabla_excel
+        """
+        res_kpis = con.execute(query_kpis).fetchone()
+        if res_kpis:
+            kpis = {
+                'total_gln': f"{res_kpis[0]:,.2f}",
+                'total_desc_galon': f"{res_kpis[1]:,.2f}",
+                'total_obsv': f"{res_kpis[2]:,.2f}",
+                'gran_total_desc': f"{res_kpis[3]:,.2f}",
+                'total_registros': f"{res_kpis[4]:,}"
+            }
+    except Exception:
+        pass
 
     # 2. Resumen por "ANALISTA" y "MES ENVIO"
     resumen_tabla = []
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
-            STRFTIME(TRY_CAST({col_fecha} AS DATE), '%Y-%m') as mes_envio,
-            SUM(TRY_CAST({col_gln} AS DOUBLE)) as total_gln,
-            SUM(TRY_CAST({col_desc_galon} AS DOUBLE)) as sum_desc_galon,
-            SUM(TRY_CAST({col_obsv} AS DOUBLE)) as sum_obsv,
+            CAST({col_fecha} AS VARCHAR) as mes_envio,
+            COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
+            COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
+            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
             (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
         FROM tabla_excel
-        WHERE {col_fecha} IS NOT NULL
         GROUP BY analista, mes_envio
         ORDER BY mes_envio ASC, analista ASC
     """
     try:
         resumen_tabla = con.execute(q_tabla).fetchall()
     except Exception:
-        q_tabla_fallback = f"""
-            SELECT 
-                CAST({col_cat1} AS VARCHAR) as analista,
-                STRFTIME(TRY_CAST(STRPTIME(CAST({col_fecha} AS VARCHAR), '%Y-%m-%d %H:%M:%S') AS DATE), '%Y-%m') as mes_envio,
-                SUM(TRY_CAST({col_gln} AS DOUBLE)) as total_gln,
-                SUM(TRY_CAST({col_desc_galon} AS DOUBLE)) as sum_desc_galon,
-                SUM(TRY_CAST({col_obsv} AS DOUBLE)) as sum_obsv,
-                (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
-            FROM tabla_excel
-            GROUP BY analista, mes_envio
-            ORDER BY mes_envio ASC, analista ASC
-        """
-        try:
-            resumen_tabla = con.execute(q_tabla_fallback).fetchall()
-        except Exception:
-            resumen_tabla = []
+        resumen_tabla = []
 
     # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
     chart_cat_labels = []
@@ -210,7 +216,7 @@ def dashboard():
     """
     try:
         res_cat = con.execute(q_cat).fetchall()
-        chart_cat_labels = [str(r[0]) for r in res_cat]
+        chart_cat_labels = [str(r[0]) if r[0] is not None else "N/A" for r in res_cat]
         chart_cat_data = [float(r[1]) if r[1] else 0.0 for r in res_cat]
     except Exception:
         pass
