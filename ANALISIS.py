@@ -41,7 +41,7 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# PASO 1: Carga ligera de estructura
+# PASO 1: Carga de archivo y redirección directa al Dashboard
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -77,7 +77,8 @@ def cargar_excel():
                     del df_preview
                     gc.collect()
                     
-                    return redirect(url_for("paso2_columnas"))
+                    # Redirección directa al Dashboard omitiendo el Paso 2
+                    return redirect(url_for("dashboard"))
 
                 except Exception as e:
                     error = f"Error al leer la estructura del Excel: {str(e)}"
@@ -86,9 +87,9 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Selección dinámica con nombres exactos requeridos
-@app.route("/paso2-columnas", methods=["GET", "POST"])
-def paso2_columnas():
+# PASO 2: Dashboard dinámico con DuckDB
+@app.route("/dashboard")
+def dashboard():
     if not session.get("usuario"):
         return redirect(url_for("login"))
 
@@ -96,61 +97,24 @@ def paso2_columnas():
     if user_key not in DATA_STORE:
         return redirect(url_for("cargar_excel"))
 
-    data = DATA_STORE[user_key]
-
-    if request.method == "POST":
-        DATA_STORE[user_key]['mapeo_columnas'] = {
-            'col_gln': request.form.get("col_gln") or "CANT GLN",
-            'col_desc_galon': request.form.get("col_desc_galon") or "DESC X GALON",
-            'col_obsv': request.form.get("col_obsv") or "OBSV ADICIONAL",
-            'categoria_1': request.form.get("col_categoria_1") or "ANALISTA",
-            'fecha': request.form.get("col_fecha") or "MES ENVIO"
-        }
-        return redirect(url_for("dashboard"))
-
-    return render_template(
-        "Lista_despegable_columna.html",
-        columnas=data['columnas'],
-        filename=data['filename'],
-        total_columnas=len(data['columnas'])
-    )
-
-# PASO 3: Dashboard dinámico con DuckDB
-@app.route("/dashboard")
-def dashboard():
-    if not session.get("usuario"):
-        return redirect(url_for("login"))
-
-    user_key = session.get("usuario", "DICKSON")
-    if user_key not in DATA_STORE or 'mapeo_columnas' not in DATA_STORE[user_key]:
-        # Mapeo por defecto con los nombres exactos si no se han enviado por POST
-        DATA_STORE[user_key] = DATA_STORE.get(user_key, {})
-        DATA_STORE[user_key]['mapeo_columnas'] = {
-            'col_gln': "CANT GLN",
-            'col_desc_galon': "DESC X GALON",
-            'col_obsv': "OBSV ADICIONAL",
-            'categoria_1': "ANALISTA",
-            'fecha': "MES ENVIO"
-        }
+    # Configuración de mapeo fijo por defecto
+    DATA_STORE[user_key]['mapeo_columnas'] = {
+        'col_gln': "CANT GLN",
+        'col_desc_galon': "DESC X GALON",
+        'col_obsv': "OBSV ADICIONAL",
+        'categoria_1': "ANALISTA",
+        'fecha': "MES ENVIO"
+    }
 
     mapeo = DATA_STORE[user_key]['mapeo_columnas']
     file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
 
-    # Asignación explícita de nombres de columnas exactos entre comillas
     nombre_col_gln = "CANT GLN"
     nombre_col_desc_galon = "DESC X GALON"
     nombre_col_obsv = "OBSV ADICIONAL"
     nombre_col_cat1 = "ANALISTA"
     nombre_col_fecha = "MES ENVIO"
-
-    cols_a_cargar = [
-        nombre_col_gln,
-        nombre_col_desc_galon,
-        nombre_col_obsv,
-        nombre_col_cat1,
-        nombre_col_fecha
-    ]
 
     try:
         engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
@@ -168,7 +132,7 @@ def dashboard():
     con = duckdb.connect()
     con.register("tabla_excel", df)
 
-    # Definición de columnas entre comillas dobles para DuckDB
+    # Nombres de columnas escapados para DuckDB
     col_gln = f'"{nombre_col_gln}"'
     col_desc_galon = f'"{nombre_col_desc_galon}"'
     col_obsv = f'"{nombre_col_obsv}"'
@@ -213,7 +177,6 @@ def dashboard():
     try:
         resumen_tabla = con.execute(q_tabla).fetchall()
     except Exception:
-        # Reintento si la fecha viene en formato string largo
         q_tabla_fallback = f"""
             SELECT 
                 CAST({col_cat1} AS VARCHAR) as analista,
