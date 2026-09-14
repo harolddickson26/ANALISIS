@@ -205,24 +205,35 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
-    chart_cat_labels = []
-    chart_cat_data = []
-
-    q_cat = f"""
+    # 3. Datos estructurados para los 4 gráficos por Analista
+    q_analistas = f"""
         SELECT 
-            CAST({col_cat1} AS VARCHAR) as categoria, 
-            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total
+            CAST({col_cat1} AS VARCHAR) as analista,
+            COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
+            COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
+            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
+            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
         FROM tabla_excel
         WHERE {col_cat1} IS NOT NULL
-        GROUP BY categoria
-        ORDER BY total DESC
+        GROUP BY analista
+        ORDER BY total_descuento DESC
         LIMIT 10
     """
+    
+    chart_labels = []
+    chart_gln = []
+    chart_desc = []
+    chart_obsv = []
+    chart_total = []
+
     try:
-        res_cat = con.execute(q_cat).fetchall()
-        chart_cat_labels = [str(r[0]) if r[0] is not None else "N/A" for r in res_cat]
-        chart_cat_data = [float(r[1]) if r[1] else 0.0 for r in res_cat]
+        res_analistas = con.execute(q_analistas).fetchall()
+        for r in res_analistas:
+            chart_labels.append(str(r[0]) if r[0] is not None else "N/A")
+            chart_gln.append(float(r[1]) if r[1] else 0.0)
+            chart_desc.append(float(r[2]) if r[2] else 0.0)
+            chart_obsv.append(float(r[3]) if r[3] else 0.0)
+            chart_total.append(float(r[4]) if r[4] else 0.0)
     except Exception:
         pass
 
@@ -235,8 +246,11 @@ def dashboard():
         registros=resumen_tabla,
         filename=filename,
         mapeo=mapeo,
-        chart_cat_labels=chart_cat_labels,
-        chart_cat_data=chart_cat_data
+        chart_labels=chart_labels,
+        chart_gln=chart_gln,
+        chart_desc=chart_desc,
+        chart_obsv=chart_obsv,
+        chart_total=chart_total
     )
 
 if __name__ == "__main__":
