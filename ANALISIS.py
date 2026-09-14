@@ -41,7 +41,6 @@ def logout():
     session.pop("usuario", None)
     return redirect(url_for("login"))
 
-# PASO 1: Carga de archivo y redirección directa al Dashboard
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
@@ -86,7 +85,6 @@ def cargar_excel():
 
     return render_template("cargar_excel.html", error=error)
 
-# PASO 2: Dashboard dinámico con DuckDB protegido
 @app.route("/dashboard")
 def dashboard():
     if not session.get("usuario"):
@@ -106,31 +104,37 @@ def dashboard():
         except Exception:
             df = pd.read_excel(file_path)
         
-        # Limpieza ligera de espacios en las cabeceras
         df.columns = [str(col).strip() for col in df.columns]
 
     except Exception as e:
         return f"Error al procesar el archivo Excel: {str(e)}"
 
-    # Buscar columnas automáticamente coincidiendo sin importar espacios o mayúsculas
+    # Buscar columnas automáticamente
     cols_existentes = {col.upper().strip(): col for col in df.columns}
     
-    def buscar_col(nombre_buscado):
-        for k, v in cols_existentes.items():
-            if nombre_buscado.upper() in k:
-                return v
+    def buscar_col(lista_opciones):
+        for opcion in lista_opciones:
+            for k, v in cols_existentes.items():
+                if opcion.upper() in k:
+                    return v
         return None
 
-    col_gln_real = buscar_col("CANT GLN") or buscar_col("CANT") or "CANT GLN"
-    col_desc_real = buscar_col("DESC X GALON") or buscar_col("DESC") or "DESC X GALON"
-    col_obsv_real = buscar_col("OBSV ADICIONAL") or buscar_col("OBSV") or "OBSV ADICIONAL"
-    col_cat1_real = buscar_col("ANALISTA") or "ANALISTA"
-    col_fecha_real = buscar_col("MES ENVIO") or buscar_col("MES") or "MES ENVIO"
+    col_gln_real = buscar_col(["CANT GLN", "CANTIDAD", "GALON", "GLN"]) or "CANT GLN"
+    col_desc_real = buscar_col(["DESC X GALON", "DESCUENTO", "DESC"]) or "DESC X GALON"
+    col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
+    col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
+    col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
 
-    # Si alguna columna no está en el dataframe, crearla vacía para evitar error de SQL
+    cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
     for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
         if col not in df.columns:
             df[col] = None
+
+    for col in cols_a_procesar:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str).str.replace('$', '', regex=False)
+            df[col] = df[col].str.replace(',', '', regex=False)
+            df[col] = df[col].str.strip()
 
     mapeo = {
         'col_gln': col_gln_real,
@@ -181,7 +185,7 @@ def dashboard():
     except Exception:
         pass
 
-    # 2. Resumen por "ANALISTA" y "MES ENVIO" (Formateando la fecha a AAAA-MM)
+    # 2. Resumen por ANALISTA y MES ENVIO
     resumen_tabla = []
     q_tabla = f"""
         SELECT 
@@ -200,7 +204,7 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos para Gráfica (Top 10 ANALISTA por Total Descuento)
+    # 3. Datos para Gráfica (Top 10 ANALISTA)
     chart_cat_labels = []
     chart_cat_data = []
 
