@@ -109,7 +109,7 @@ def dashboard():
     except Exception as e:
         return f"Error al procesar el archivo Excel: {str(e)}"
 
-    # Mapeo de columnas con soporte ampliado para OBSERVACIONES
+    # Mapeo flexible de columnas
     cols_existentes = {col.upper().strip(): col for col in df.columns}
     
     def buscar_col(lista_opciones):
@@ -124,14 +124,14 @@ def dashboard():
     col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
+    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO COSTO", "CENTRO_COSTO", "CC", "COSTO"]) or "CENTRO DE COSTO"
 
-    # Asegurar existencia de columnas y limpiar formato numérico
-    cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
-    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
+    # Asegurar existencia de columnas y limpieza numérica
+    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real]:
         if col not in df.columns:
             df[col] = None
 
-    for col in cols_a_procesar:
+    for col in [col_gln_real, col_desc_real, col_obsv_real]:
         if df[col].dtype == object:
             df[col] = df[col].astype(str).str.replace('$', '', regex=False)
             df[col] = df[col].str.replace(',', '', regex=False)
@@ -142,7 +142,8 @@ def dashboard():
         'col_desc_galon': col_desc_real,
         'col_obsv': col_obsv_real,
         'categoria_1': col_cat1_real,
-        'fecha': col_fecha_real
+        'fecha': col_fecha_real,
+        'centro_costo': col_cc_real
     }
     DATA_STORE[user_key]['mapeo_columnas'] = mapeo
 
@@ -154,6 +155,7 @@ def dashboard():
     col_obsv = f'"{col_obsv_real}"'
     col_cat1 = f'"{col_cat1_real}"'
     col_fecha = f'"{col_fecha_real}"'
+    col_cc = f'"{col_cc_real}"'
 
     kpis = {
         'total_gln': "0.00",
@@ -186,7 +188,7 @@ def dashboard():
     except Exception:
         pass
 
-    # 2. Resumen por "ANALISTA" y "MES ENVIO"
+    # 2. Resumen por ANALISTA y MES ENVIO
     resumen_tabla = []
     q_tabla = f"""
         SELECT 
@@ -205,7 +207,7 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos estructurados para los gráficos por ANALISTA y MES ENVIO con asignación de color
+    # 3. Gráfico 1: Analistas vs Galones
     q_analistas = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -226,7 +228,6 @@ def dashboard():
     chart_obsv = []
     chart_total = []
     chart_colors = []
-
     datos_analistas = {}
     total_gln_general = 0.0
 
@@ -257,8 +258,8 @@ def dashboard():
     except Exception:
         pass
 
-    # Generación dinámica del análisis explicativo
-    analisis_grafico1 = "No hay información suficiente para procesar el análisis."
+    # Análisis explicativo Gráfico 1
+    analisis_grafico1 = "No hay información suficiente para procesar el análisis de analistas."
     if datos_analistas and total_gln_general > 0:
         totales_por_analista = {analista: sum(meses.values()) for analista, meses in datos_analistas.items()}
         lider = max(totales_por_analista, key=totales_por_analista.get)
@@ -285,6 +286,82 @@ def dashboard():
             f"• <strong>Recomendación:</strong> Monitorear la carga en picos operativos para balancear revisiones de galonaje."
         )
 
+    # 4. Gráfico 2: Frecuencia de Transacciones por Centro de Costo y Mes (Barras Apiladas)
+    chart_cc_labels = []
+    chart_cc_datasets = []
+    analisis_grafico2 = "No hay información de Centros de Costo para mostrar."
+    total_tx_general = 0
+
+    try:
+        q_cc = f"""
+            SELECT 
+                SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
+                CAST({col_cc} AS VARCHAR) as centro_costo,
+                COUNT(*) as total_transacciones
+            FROM tabla_excel
+            WHERE {col_cc} IS NOT NULL AND {col_cc} != '' AND {col_cc} != 'None'
+            GROUP BY mes_envio, centro_costo
+            ORDER BY mes_envio ASC, centro_costo ASC
+        """
+        res_cc = con.execute(q_cc).fetchall()
+        
+        if res_cc:
+            # Obtener meses únicos (labels en eje X)
+            meses_unicos = sorted(list(set(str(r[0]).strip() for r in res_cc if r[0])))
+            chart_cc_labels = meses_unicos
+
+            # Agrupar conteos por Centro de Costo
+            dict_cc = {}
+            for r in res_cc:
+                mes = str(r[0]).strip()
+                cc = str(r[1]).strip()
+                count = int(r[2])
+                
+                if cc not in dict_cc:
+                    dict_cc[cc] = {m: 0 for m in meses_unicos}
+                dict_cc[cc][mes] = count
+                total_tx_general += count
+
+            # Paleta de colores para los centros de costo
+            colores_cc = ["#0d6efd", "#198754", "#ffc107", "#0dcaf0", "#6f42c1", "#fd7e14", "#d63384", "#20c997"]
+            
+            idx = 0
+            for cc, valores in dict_cc.items():
+                chart_cc_datasets.append({
+                    "label": f"CC: {cc}",
+                    "data": [valores[m] for m in meses_unicos],
+                    "backgroundColor": colores_cc[idx % len(colores_cc)]
+                })
+                idx += 1
+
+            # Generar análisis estadístico dinámico para Gráfico 2
+            totales_por_cc = {cc: sum(m.values()) for cc, m in dict_cc.items()}
+            top_cc = max(totales_por_cc, key=totales_por_cc.get)
+            top_cc_tx = totales_por_cc[top_cc]
+            top_cc_pct = (top_cc_tx / total_tx_general) * 100 if total_tx_general > 0 else 0
+
+            analisis_grafico2 = (
+                f"<strong>Conclusión y Análisis de Frecuencia Operativa por Centro de Costos:</strong><br>"
+                f"• <strong>Centro de Costo Mayoritario:</strong> El Centro de Costos <strong>{top_cc}</strong> lidera la frecuencia transaccional con <strong>{top_cc_tx:,} envíos/registros</strong> (<strong>{top_cc_pct:.1f}%</strong> del total transaccional).<br>"
+                f"• <strong>Volumen Transaccional Total:</strong> Se procesaron un total de <strong>{total_tx_general:,} operaciones</strong> distribuidas en los periodos analizados.<br>"
+                f"• <strong>Distribución Temporal:</strong> Las solicitudes por Centro de Costos muestran un comportamiento de concentración mensual reflejado en las barras apiladas.<br>"
+                f"• <strong>Recomendación:</strong> Priorizar la auditoría de procesos y autorizaciones en el centro de mayor frecuencia (CC {top_cc})."
+            )
+    except Exception:
+        pass
+
+    # 5. Tarjeta 3: Análisis Estadístico Comparativo Cruzado
+    analisis_cruzado = None
+    if datos_analistas and total_tx_general > 0:
+        promedio_gln_por_tx = total_gln_general / total_tx_general if total_tx_general > 0 else 0.0
+        
+        analisis_cruzado = (
+            f"<strong>Diagnóstico Comparativo Cruzado (Volumen vs Frecuencia):</strong><br>"
+            f"• <strong>Eficiencia Transaccional (Galonaje Promedio por Operación):</strong> En promedio, cada transacción registrada en los centros de costo moviliza <strong>{promedio_gln_por_tx:,.2f} GLN</strong>.<br>"
+            f"• <strong>Correlación Operativa:</strong> Mientras el total acumulado alcanza <strong>{total_gln_general:,.2f} GLN</strong> en volumen, la operatividad implicó <strong>{total_tx_general:,} transacciones</strong> de gestión por parte del equipo analista.<br>"
+            f"• <strong>Conclusión Estratégica:</strong> Un alto volumen de transacciones concentrado en un solo centro de costo puede requerir mayor dedicación operativa que grandes volúmenes de galonaje agrupados en pocos registros."
+        )
+
     del df
     gc.collect()
 
@@ -294,13 +371,20 @@ def dashboard():
         registros=resumen_tabla,
         filename=filename,
         mapeo=mapeo,
+        # Tarjeta 1
         chart_labels=chart_labels,
         chart_gln=chart_gln,
         chart_desc=chart_desc,
         chart_obsv=chart_obsv,
         chart_total=chart_total,
         chart_colors=chart_colors,
-        analisis_grafico1=analisis_grafico1
+        analisis_grafico1=analisis_grafico1,
+        # Tarjeta 2
+        chart_cc_labels=chart_cc_labels,
+        chart_cc_datasets=chart_cc_datasets,
+        analisis_grafico2=analisis_grafico2,
+        # Tarjeta 3 Cruzada
+        analisis_cruzado=analisis_cruzado
     )
 
 if __name__ == "__main__":
