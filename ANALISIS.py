@@ -227,28 +227,63 @@ def dashboard():
     chart_total = []
     chart_colors = []
 
+    datos_analistas = {}
+    total_gln_general = 0.0
+
     try:
         res_analistas = con.execute(q_analistas).fetchall()
         for r in res_analistas:
             nombre = str(r[0]).strip().upper() if r[0] is not None else "N/A"
             mes = str(r[1]).strip() if r[1] is not None else "N/A"
+            gln_val = float(r[2]) if r[2] else 0.0
 
-            # Etiqueta combinada: "ANALISTA - MES ENVIO"
             chart_labels.append(f"{nombre} - {mes}")
-            chart_gln.append(float(r[2]) if r[2] else 0.0)
+            chart_gln.append(gln_val)
             chart_desc.append(float(r[3]) if r[3] else 0.0)
             chart_obsv.append(float(r[4]) if r[4] else 0.0)
             chart_total.append(float(r[5]) if r[5] else 0.0)
 
-            # Asignación dinámica de colores según el analista
+            if nombre not in datos_analistas:
+                datos_analistas[nombre] = {}
+            datos_analistas[nombre][mes] = gln_val
+            total_gln_general += gln_val
+
             if "DICKSON" in nombre:
                 chart_colors.append("#0d6efd")  # Azul
             elif "FABIAN" in nombre or "FABIÁN" in nombre:
                 chart_colors.append("#dc3545")  # Rojo
             else:
-                chart_colors.append("#6c757d")  # Gris por defecto
+                chart_colors.append("#6c757d")  # Gris
     except Exception:
         pass
+
+    # Generación dinámica del análisis explicativo
+    analisis_grafico1 = "No hay información suficiente para procesar el análisis."
+    if datos_analistas and total_gln_general > 0:
+        totales_por_analista = {analista: sum(meses.values()) for analista, meses in datos_analistas.items()}
+        lider = max(totales_por_analista, key=totales_por_analista.get)
+        lider_gln = totales_por_analista[lider]
+        lider_pct = (lider_gln / total_gln_general) * 100
+
+        segundo = min(totales_por_analista, key=totales_por_analista.get)
+        segundo_gln = totales_por_analista[segundo]
+        segundo_pct = (segundo_gln / total_gln_general) * 100
+
+        diferencia = abs(lider_gln - segundo_gln)
+
+        meses_totales = {}
+        for analista, meses in datos_analistas.items():
+            for m, v in meses.items():
+                meses_totales[m] = meses_totales.get(m, 0.0) + v
+        mes_pico = max(meses_totales, key=meses_totales.get) if meses_totales else "N/A"
+
+        analisis_grafico1 = (
+            f"<strong>Conclusión y Análisis del Volumen Operativo:</strong><br>"
+            f"• <strong>Liderazgo de Volumen:</strong> {lider} concentra la mayor carga operativa con <strong>{lider_gln:,.2f} GLN</strong> (<strong>{lider_pct:.1f}%</strong> del total).<br>"
+            f"• <strong>Comparativo Operativo:</strong> {segundo} registró <strong>{segundo_gln:,.2f} GLN</strong> (<strong>{segundo_pct:.1f}%</strong>), existiendo una brecha de <strong>{diferencia:,.2f} GLN</strong>.<br>"
+            f"• <strong>Mes Pico:</strong> El periodo de mayor concentración de volumen fue <strong>{mes_pico}</strong> con un total de <strong>{meses_totales.get(mes_pico, 0):,.2f} GLN</strong>.<br>"
+            f"• <strong>Recomendación:</strong> Monitorear la carga en picos operativos para balancear revisiones de galonaje."
+        )
 
     del df
     gc.collect()
@@ -264,7 +299,8 @@ def dashboard():
         chart_desc=chart_desc,
         chart_obsv=chart_obsv,
         chart_total=chart_total,
-        chart_colors=chart_colors
+        chart_colors=chart_colors,
+        analisis_grafico1=analisis_grafico1
     )
 
 if __name__ == "__main__":
