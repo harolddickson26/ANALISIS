@@ -139,7 +139,7 @@
         {% if chart_labels %}
         <div class="row g-4">
             
-            <!-- 1. Galones por Analista y Mes (PRIMER GRÁFICO) -->
+            <!-- 1. Galones por Analista y Mes -->
             <div class="col-12">
                 <div class="card card-custom p-4 bg-white h-100">
                     <h6 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h6>
@@ -206,7 +206,7 @@
             const dataGln = {{ chart_gln | tojson }};
             const colors = {{ chart_colors | tojson }};
 
-            // 1. Galones por Analista y Mes (DICKSON Azul, FABIAN Rojo)
+            // 1. Galones por Analista y Mes
             new Chart(document.getElementById('chartAnalistasGrouped'), {
                 type: 'bar',
                 data: {
@@ -259,7 +259,7 @@
                 }
             });
 
-            // 4. Combinado (Barras con color por analista + Línea de Galones)
+            // 4. Combinado (Barras + Línea de Galones)
             new Chart(document.getElementById('chartCombo'), {
                 data: {
                     labels: labels,
@@ -278,7 +278,7 @@
                 }
             });
 
-            // 5. Dona (Usa los mismos colores asignados)
+            // 5. Dona
             new Chart(document.getElementById('chartDoughnut'), {
                 type: 'doughnut',
                 data: {
