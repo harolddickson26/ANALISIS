@@ -42,7 +42,11 @@
             border-top: 2px solid #212529;
         }
         .table-custom tfoot td { border: 1px solid #ced4da; }
-        .chart-box { min-height: 260px; }
+        .chart-box { 
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -137,17 +141,16 @@
 
         <!-- Sección de Gráficos Analíticos -->
         {% if chart_labels %}
-        <div class="row g-4">
+        <div class="row g-4 mb-5">
             
             <!-- 1. Galones por Analista y Mes -->
             <div class="col-12">
-                <div class="card card-custom p-4 bg-white h-100">
+                <div class="card card-custom p-4 bg-white">
                     <h6 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h6>
-                    <div class="chart-box" style="min-height: 300px;">
+                    <div class="chart-box" style="height: 320px;">
                         <canvas id="chartAnalistasGrouped"></canvas>
                     </div>
                     
-                    <!-- Análisis Estadístico Dinámico -->
                     {% if analisis_grafico1 %}
                     <div class="alert alert-info mt-3 shadow-sm mb-0" role="alert" style="border-left: 5px solid #0d6efd; background-color: #f8f9fa; color: #212529;">
                         {{ analisis_grafico1 | safe }}
@@ -190,8 +193,8 @@
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white h-100">
                     <h6 class="fw-bold mb-3 text-secondary">5. Participación Porcentual del Total</h6>
-                    <div class="chart-box d-flex justify-content-center">
-                        <canvas id="chartDoughnut" style="max-height: 240px;"></canvas>
+                    <div class="chart-box">
+                        <canvas id="chartDoughnut"></canvas>
                     </div>
                 </div>
             </div>
@@ -199,98 +202,110 @@
         </div>
 
         <script>
-            const labels = {{ chart_labels | tojson }};
-            const dataDesc = {{ chart_desc | tojson }};
-            const dataObsv = {{ chart_obsv | tojson }};
-            const dataTotal = {{ chart_total | tojson }};
-            const dataGln = {{ chart_gln | tojson }};
-            const colors = {{ chart_colors | tojson }};
+            document.addEventListener("DOMContentLoaded", function () {
+                const labels = {{ chart_labels | tojson }};
+                const dataDesc = {{ chart_desc | tojson }};
+                const dataObsv = {{ chart_obsv | tojson }};
+                const dataTotal = {{ chart_total | tojson }};
+                const dataGln = {{ chart_gln | tojson }};
+                const colors = {{ chart_colors | tojson }};
 
-            // 1. Galones por Analista y Mes
-            new Chart(document.getElementById('chartAnalistasGrouped'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Total Galones (GLN)',
-                        data: dataGln,
-                        backgroundColor: colors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
+                // 1. Galones por Analista y Mes
+                if (document.getElementById('chartAnalistasGrouped')) {
+                    new Chart(document.getElementById('chartAnalistasGrouped'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Total Galones (GLN)',
+                                data: dataGln,
+                                backgroundColor: colors
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
                 }
-            });
 
-            // 2. Barras Apiladas
-            new Chart(document.getElementById('chartStacked'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
-                        { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#ffc107' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                // 2. Barras Apiladas
+                if (document.getElementById('chartStacked')) {
+                    new Chart(document.getElementById('chartStacked'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
+                                { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#ffc107' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                        }
+                    });
                 }
-            });
 
-            // 3. Barras Agrupadas por Concepto
-            new Chart(document.getElementById('chartGrouped'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
-                        { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#fd7e14' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } }
+                // 3. Barras Agrupadas por Concepto
+                if (document.getElementById('chartGrouped')) {
+                    new Chart(document.getElementById('chartGrouped'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
+                                { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#fd7e14' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
                 }
-            });
 
-            // 4. Combinado (Barras + Línea de Galones)
-            new Chart(document.getElementById('chartCombo'), {
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: colors, yAxisID: 'y' },
-                        { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#20c997', borderWidth: 3, yAxisID: 'y1' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { type: 'linear', position: 'left', beginAtZero: true },
-                        y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
-                    }
+                // 4. Combinado (Barras + Línea de Galones)
+                if (document.getElementById('chartCombo')) {
+                    new Chart(document.getElementById('chartCombo'), {
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: colors, yAxisID: 'y' },
+                                { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#20c997', borderWidth: 3, yAxisID: 'y1' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { type: 'linear', position: 'left', beginAtZero: true },
+                                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+                            }
+                        }
+                    });
                 }
-            });
 
-            // 5. Dona
-            new Chart(document.getElementById('chartDoughnut'), {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: dataTotal,
-                        backgroundColor: colors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
+                // 5. Dona
+                if (document.getElementById('chartDoughnut')) {
+                    new Chart(document.getElementById('chartDoughnut'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: dataTotal,
+                                backgroundColor: colors
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
                 }
             });
         </script>
@@ -302,8 +317,6 @@
     <script>
         function descargarHTML() {
             const docClone = document.documentElement.cloneNode(true);
-            
-            // Elimina los botones de la barra de navegación del informe generado
             const botones = docClone.querySelectorAll('.btn');
             botones.forEach(btn => btn.remove());
 
