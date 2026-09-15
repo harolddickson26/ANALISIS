@@ -44,7 +44,7 @@
         .table-custom tfoot td { border: 1px solid #ced4da; }
         .chart-box { 
             position: relative;
-            height: 280px;
+            height: 320px;
             width: 100%;
         }
     </style>
@@ -139,15 +139,14 @@
             </div>
         </div>
 
-        <!-- Sección de Gráficos Analíticos -->
-        {% if chart_labels %}
-        <div class="row g-4 mb-5">
+        <!-- Sección de Gráficos Analíticos Principal -->
+        <div class="row g-4 mb-4">
             
-            <!-- 1. Galones por Analista y Mes -->
+            <!-- TARJETA 1: Galones por Analista y Mes -->
             <div class="col-12">
                 <div class="card card-custom p-4 bg-white">
-                    <h6 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h6>
-                    <div class="chart-box" style="height: 320px;">
+                    <h5 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h5>
+                    <div class="chart-box">
                         <canvas id="chartAnalistasGrouped"></canvas>
                     </div>
                     
@@ -159,159 +158,88 @@
                 </div>
             </div>
 
-            <!-- 2. Barras Apiladas -->
-            <div class="col-md-6">
-                <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">2. Composición de Descuentos (Apiladas)</h6>
+            <!-- TARJETA 2: Frecuencia de Transacciones por Centro de Costos y Mes -->
+            <div class="col-12">
+                <div class="card card-custom p-4 bg-white">
+                    <h5 class="fw-bold mb-3 text-secondary">2. Frecuencia de Transacciones por Centro de Costos y Mes</h5>
                     <div class="chart-box">
-                        <canvas id="chartStacked"></canvas>
+                        <canvas id="chartCCStacked"></canvas>
                     </div>
+                    
+                    {% if analisis_grafico2 %}
+                    <div class="alert alert-info mt-3 shadow-sm mb-0" role="alert" style="border-left: 5px solid #198754; background-color: #f8f9fa; color: #212529;">
+                        {{ analisis_grafico2 | safe }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- 3. Comparación Directa de Conceptos -->
-            <div class="col-md-6">
-                <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">3. Comparación Directa de Conceptos (Agrupadas)</h6>
-                    <div class="chart-box">
-                        <canvas id="chartGrouped"></canvas>
+            <!-- TARJETA 3: Análisis Estadístico Comparativo Cruzado -->
+            {% if analisis_cruzado %}
+            <div class="col-12">
+                <div class="card card-custom p-4 bg-white">
+                    <h5 class="fw-bold mb-3 text-primary">🔍 Análisis Estadístico Cruzado (Volumen de Galonaje vs Frecuencia de Transacciones)</h5>
+                    <div class="alert alert-secondary shadow-sm mb-0" role="alert" style="border-left: 5px solid #6f42c1; background-color: #f8f9fa; color: #212529;">
+                        {{ analisis_cruzado | safe }}
                     </div>
                 </div>
             </div>
-
-            <!-- 4. Combinado (Pesos vs Galones) -->
-            <div class="col-md-6">
-                <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">4. Relación Descuentos ($) vs Galones (GLN)</h6>
-                    <div class="chart-box">
-                        <canvas id="chartCombo"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 5. Gráfico de Dona -->
-            <div class="col-md-6">
-                <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">5. Participación Porcentual del Total</h6>
-                    <div class="chart-box">
-                        <canvas id="chartDoughnut"></canvas>
-                    </div>
-                </div>
-            </div>
+            {% endif %}
 
         </div>
 
-        <script>
-            document.addEventListener("DOMContentLoaded", function () {
-                const labels = {{ chart_labels | tojson }};
-                const dataDesc = {{ chart_desc | tojson }};
-                const dataObsv = {{ chart_obsv | tojson }};
-                const dataTotal = {{ chart_total | tojson }};
-                const dataGln = {{ chart_gln | tojson }};
-                const colors = {{ chart_colors | tojson }};
-
-                // 1. Galones por Analista y Mes
-                if (document.getElementById('chartAnalistasGrouped')) {
-                    new Chart(document.getElementById('chartAnalistasGrouped'), {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Total Galones (GLN)',
-                                data: dataGln,
-                                backgroundColor: colors
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
-                }
-
-                // 2. Barras Apiladas
-                if (document.getElementById('chartStacked')) {
-                    new Chart(document.getElementById('chartStacked'), {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
-                                { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#ffc107' }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
-                        }
-                    });
-                }
-
-                // 3. Barras Agrupadas por Concepto
-                if (document.getElementById('chartGrouped')) {
-                    new Chart(document.getElementById('chartGrouped'), {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
-                                { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#fd7e14' }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: { y: { beginAtZero: true } }
-                        }
-                    });
-                }
-
-                // 4. Combinado (Barras + Línea de Galones)
-                if (document.getElementById('chartCombo')) {
-                    new Chart(document.getElementById('chartCombo'), {
-                        data: {
-                            labels: labels,
-                            datasets: [
-                                { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: colors, yAxisID: 'y' },
-                                { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#20c997', borderWidth: 3, yAxisID: 'y1' }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                y: { type: 'linear', position: 'left', beginAtZero: true },
-                                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
-                            }
-                        }
-                    });
-                }
-
-                // 5. Dona
-                if (document.getElementById('chartDoughnut')) {
-                    new Chart(document.getElementById('chartDoughnut'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                data: dataTotal,
-                                backgroundColor: colors
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false
-                        }
-                    });
-                }
-            });
-        </script>
-        {% endif %}
-
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Datos Gráfico 1
+            const labels1 = {{ chart_labels | default([]) | tojson }};
+            const dataGln = {{ chart_gln | default([]) | tojson }};
+            const colors1 = {{ chart_colors | default([]) | tojson }};
+
+            if (document.getElementById('chartAnalistasGrouped') && labels1.length > 0) {
+                new Chart(document.getElementById('chartAnalistasGrouped'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels1,
+                        datasets: [{
+                            label: 'Total Galones (GLN)',
+                            data: dataGln,
+                            backgroundColor: colors1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Datos Gráfico 2 (Barras apiladas por Mes para Centros de Costos)
+            const labelsCC = {{ chart_cc_labels | default([]) | tojson }};
+            const datasetsCC = {{ chart_cc_datasets | default([]) | tojson }};
+
+            if (document.getElementById('chartCCStacked') && labelsCC.length > 0) {
+                new Chart(document.getElementById('chartCCStacked'), {
+                    type: 'bar',
+                    data: {
+                        labels: labelsCC,
+                        datasets: datasetsCC
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 
     <!-- Script para descargar informe HTML independiente -->
     <script>
