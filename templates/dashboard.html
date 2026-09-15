@@ -139,10 +139,10 @@
         {% if chart_labels %}
         <div class="row g-4">
             
-            <!-- 1. Barras Agrupadas por Analista (PRIMER GRÁFICO) -->
+            <!-- 1. Galones por Analista y Mes (PRIMER GRÁFICO) -->
             <div class="col-12">
                 <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">1. Comparación Total Descuentos por Analista (DICKSON vs FABIÁN)</h6>
+                    <h6 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h6>
                     <div class="chart-box" style="min-height: 300px;">
                         <canvas id="chartAnalistasGrouped"></canvas>
                     </div>
@@ -199,14 +199,14 @@
             const dataGln = {{ chart_gln | tojson }};
             const colors = {{ chart_colors | tojson }};
 
-            // 1. Barras Agrupadas por Analista (DICKSON Azul, FABIAN Rojo)
+            // 1. Galones por Analista y Mes (DICKSON Azul, FABIAN Rojo)
             new Chart(document.getElementById('chartAnalistasGrouped'), {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Total Descuentos ($)',
-                        data: dataTotal,
+                        label: 'Total Galones (GLN)',
+                        data: dataGln,
                         backgroundColor: colors
                     }]
                 },
