@@ -139,40 +139,50 @@
         {% if chart_labels %}
         <div class="row g-4">
             
-            <!-- 1. Barras Apiladas -->
+            <!-- 1. Barras Agrupadas por Analista (PRIMER GRÁFICO) -->
+            <div class="col-12">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">1. Comparación Total Descuentos por Analista (DICKSON vs FABIÁN)</h6>
+                    <div class="chart-box" style="min-height: 300px;">
+                        <canvas id="chartAnalistasGrouped"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Barras Apiladas -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">1. Composición de Descuentos (Apiladas)</h6>
+                    <h6 class="fw-bold mb-3 text-secondary">2. Composición de Descuentos (Apiladas)</h6>
                     <div class="chart-box">
                         <canvas id="chartStacked"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Barras Agrupadas -->
+            <!-- 3. Comparación Directa de Conceptos -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">2. Comparación Directa de Conceptos (Agrupadas)</h6>
+                    <h6 class="fw-bold mb-3 text-secondary">3. Comparación Directa de Conceptos (Agrupadas)</h6>
                     <div class="chart-box">
                         <canvas id="chartGrouped"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- 3. Combinado (Pesos vs Galones) -->
+            <!-- 4. Combinado (Pesos vs Galones) -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">3. Relación Descuentos ($) vs Galones (GLN)</h6>
+                    <h6 class="fw-bold mb-3 text-secondary">4. Relación Descuentos ($) vs Galones (GLN)</h6>
                     <div class="chart-box">
                         <canvas id="chartCombo"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- 4. Gráfico de Dona -->
+            <!-- 5. Gráfico de Dona -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white h-100">
-                    <h6 class="fw-bold mb-3 text-secondary">4. Participación Porcentual del Total</h6>
+                    <h6 class="fw-bold mb-3 text-secondary">5. Participación Porcentual del Total</h6>
                     <div class="chart-box d-flex justify-content-center">
                         <canvas id="chartDoughnut" style="max-height: 240px;"></canvas>
                     </div>
@@ -187,8 +197,28 @@
             const dataObsv = {{ chart_obsv | tojson }};
             const dataTotal = {{ chart_total | tojson }};
             const dataGln = {{ chart_gln | tojson }};
+            const colors = {{ chart_colors | tojson }};
 
-            // 1. Barras Apiladas
+            // 1. Barras Agrupadas por Analista (DICKSON Azul, FABIAN Rojo)
+            new Chart(document.getElementById('chartAnalistasGrouped'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Descuentos ($)',
+                        data: dataTotal,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 2. Barras Apiladas
             new Chart(document.getElementById('chartStacked'), {
                 type: 'bar',
                 data: {
@@ -205,7 +235,7 @@
                 }
             });
 
-            // 2. Barras Agrupadas
+            // 3. Barras Agrupadas por Concepto
             new Chart(document.getElementById('chartGrouped'), {
                 type: 'bar',
                 data: {
@@ -222,13 +252,13 @@
                 }
             });
 
-            // 3. Combinado (Barras + Línea)
+            // 4. Combinado (Barras con color por analista + Línea de Galones)
             new Chart(document.getElementById('chartCombo'), {
                 data: {
                     labels: labels,
                     datasets: [
-                        { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: '#198754', yAxisID: 'y' },
-                        { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#dc3545', borderWidth: 3, yAxisID: 'y1' }
+                        { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: colors, yAxisID: 'y' },
+                        { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#20c997', borderWidth: 3, yAxisID: 'y1' }
                     ]
                 },
                 options: {
@@ -241,14 +271,14 @@
                 }
             });
 
-            // 4. Dona
+            // 5. Dona (Usa los mismos colores asignados)
             new Chart(document.getElementById('chartDoughnut'), {
                 type: 'doughnut',
                 data: {
                     labels: labels,
                     datasets: [{
                         data: dataTotal,
-                        backgroundColor: ['#0d6efd', '#20c997', '#ffc107', '#fd7e14', '#6f42c1']
+                        backgroundColor: colors
                     }]
                 },
                 options: {

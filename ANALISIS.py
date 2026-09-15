@@ -125,7 +125,7 @@ def dashboard():
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
 
-    # Asegurar existencia de columnas y limpiar formato numérico (quitar $, comas, espacios)
+    # Asegurar existencia de columnas y limpiar formato numérico
     cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
     for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
         if col not in df.columns:
@@ -205,7 +205,7 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos estructurados para los 4 gráficos por Analista
+    # 3. Datos estructurados para los gráficos por Analista con asignación de color
     q_analistas = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -225,15 +225,25 @@ def dashboard():
     chart_desc = []
     chart_obsv = []
     chart_total = []
+    chart_colors = []
 
     try:
         res_analistas = con.execute(q_analistas).fetchall()
         for r in res_analistas:
-            chart_labels.append(str(r[0]) if r[0] is not None else "N/A")
+            nombre = str(r[0]).strip().upper() if r[0] is not None else "N/A"
+            chart_labels.append(nombre)
             chart_gln.append(float(r[1]) if r[1] else 0.0)
             chart_desc.append(float(r[2]) if r[2] else 0.0)
             chart_obsv.append(float(r[3]) if r[3] else 0.0)
             chart_total.append(float(r[4]) if r[4] else 0.0)
+
+            # Asignación dinámica de colores según el analista
+            if "DICKSON" in nombre:
+                chart_colors.append("#0d6efd")  # Azul
+            elif "FABIAN" in nombre or "FABIÁN" in nombre:
+                chart_colors.append("#dc3545")  # Rojo
+            else:
+                chart_colors.append("#6c757d")  # Gris por defecto
     except Exception:
         pass
 
@@ -250,7 +260,8 @@ def dashboard():
         chart_gln=chart_gln,
         chart_desc=chart_desc,
         chart_obsv=chart_obsv,
-        chart_total=chart_total
+        chart_total=chart_total,
+        chart_colors=chart_colors
     )
 
 if __name__ == "__main__":
