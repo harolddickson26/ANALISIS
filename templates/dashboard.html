@@ -102,6 +102,7 @@
                         <tr>
                             <th>Analista</th>
                             <th>Mes Envío</th>
+                            <th class="text-center">N° Registros</th>
                             <th class="text-end">Total Galones</th>
                             <th class="text-end">Suma DESC X GALON ($)</th>
                             <th class="text-end">Suma OBSERVACION ($)</th>
@@ -113,14 +114,15 @@
                         <tr>
                             <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
                             <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
-                            <td class="text-end">{{ "{:,.2f}".format(reg[2]) if reg[2] is not none else '0.00' }} GLN</td>
-                            <td class="text-end">$ {{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }}</td>
+                            <td class="text-center"><span class="badge bg-secondary">{{ "{:,}".format(reg[2]) if reg[2] is not none else '0' }}</span></td>
+                            <td class="text-end">{{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }} GLN</td>
                             <td class="text-end">$ {{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }}</td>
-                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[6]) if reg[6] is not none else '0.00' }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" class="text-center text-muted">No se encontraron registros.</td>
+                            <td colspan="7" class="text-center text-muted">No se encontraron registros.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -128,6 +130,7 @@
                     <tfoot>
                         <tr>
                             <td colspan="2" class="text-uppercase">TOTAL GENERAL</td>
+                            <td class="text-center"><span class="badge bg-dark">{{ kpis.total_registros }}</span></td>
                             <td class="text-end">{{ kpis.total_gln }} GLN</td>
                             <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
                             <td class="text-end">$ {{ kpis.total_obsv }}</td>
@@ -245,6 +248,21 @@
     <script>
         function descargarHTML() {
             const docClone = document.documentElement.cloneNode(true);
+            
+            // Reemplazar lienzos (canvas) por imágenes estáticas para conservar los gráficos al descargar el HTML
+            const originalCanvases = document.querySelectorAll('canvas');
+            const clonedCanvases = docClone.querySelectorAll('canvas');
+            
+            originalCanvases.forEach((canvas, index) => {
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL('image/png');
+                img.style.width = '100%';
+                img.style.maxHeight = '320px';
+                if (clonedCanvases[index] && clonedCanvases[index].parentNode) {
+                    clonedCanvases[index].parentNode.replaceChild(img, clonedCanvases[index]);
+                }
+            });
+
             const botones = docClone.querySelectorAll('.btn');
             botones.forEach(btn => btn.remove());
 
