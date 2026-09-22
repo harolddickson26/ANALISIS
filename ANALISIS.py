@@ -5,7 +5,6 @@ import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-# Clave secreta fija para garantizar la persistencia de la sesión
 app.secret_key = "clave_secreta_fija_para_analisis_app_12345"
 
 USUARIO_CORRECTO = "DICKSON"
@@ -14,7 +13,7 @@ PASSWORD_CORRECTO = "1234"
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Registro global persistente para el servidor
+# Guardará la ruta del último archivo subido
 ULTIMO_ARCHIVO = {}
 
 @app.route("/")
@@ -32,7 +31,7 @@ def login():
 
         if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
             session["usuario"] = usuario_ingresado
-            session.permanent = True  # Mantiene activa la sesión
+            session.permanent = True
             return redirect(url_for("cargar_excel"))
         else:
             error = "Usuario o contraseña incorrectos."
@@ -46,10 +45,7 @@ def logout():
 
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
-    # Garantiza usuario en sesión para evitar redirecciones involuntarias
-    if not session.get("usuario"): 
-        session["usuario"] = "DICKSON"
-    
+    session["usuario"] = "DICKSON"
     error = None
 
     if request.method == "POST":
@@ -62,14 +58,15 @@ def cargar_excel():
                     file_path = os.path.join(UPLOAD_FOLDER, file.filename)
                     file.save(file_path)
 
-                    # Guardar referencia persistente en memoria global
+                    # Guardar referencia persistente
                     ULTIMO_ARCHIVO['file_path'] = file_path
                     ULTIMO_ARCHIVO['filename'] = file.filename
                     
-                    return redirect(url_for("dashboard"))
+                    # PROCESAR Y RENDERIZAR DIRECTAMENTE (Sin hacer redirect para no perder estado)
+                    return generar_dashboard_response(file_path, file.filename)
 
                 except Exception as e:
-                    error = f"Error al guardar o procesar el Excel: {str(e)}"
+                    error = f"Error al guardar o procesar el archivo: {str(e)}"
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
@@ -77,14 +74,14 @@ def cargar_excel():
 
 @app.route("/dashboard")
 def dashboard():
-    # Si no hay un archivo registrado, regresa de manera segura a la pantalla de carga
     if 'file_path' not in ULTIMO_ARCHIVO:
         return redirect(url_for("cargar_excel"))
 
-    file_path = ULTIMO_ARCHIVO['file_path']
-    filename = ULTIMO_ARCHIVO['filename']
+    return generar_dashboard_response(ULTIMO_ARCHIVO['file_path'], ULTIMO_ARCHIVO['filename'])
 
-    # Intentar lectura del archivo Excel probando múltiples motores
+
+def generar_dashboard_response(file_path, filename):
+    """Función auxiliar que procesa el Excel con DuckDB y renderiza directamente la plantilla"""
     df = None
     errores_lectura = []
     
@@ -106,7 +103,6 @@ def dashboard():
     try:
         df.columns = [str(col).strip() for col in df.columns]
 
-        # Mapeo de columnas con soporte ampliado para OBSERVACIONES
         cols_existentes = {col.upper().strip(): col for col in df.columns}
         
         def buscar_col(lista_opciones):
@@ -122,7 +118,6 @@ def dashboard():
         col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
         col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
 
-        # Asegurar existencia de columnas y limpiar formato numérico
         cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
         for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real]:
             if col not in df.columns:
@@ -159,7 +154,6 @@ def dashboard():
             'total_registros': "0"
         }
 
-        # 1. KPIs Generales
         query_kpis = f"""
             SELECT 
                 COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
@@ -179,7 +173,6 @@ def dashboard():
                 'total_registros': f"{res_kpis[4]:,}"
             }
 
-        # 2. Resumen por "ANALISTA" y "MES ENVIO"
         q_tabla = f"""
             SELECT 
                 CAST({col_cat1} AS VARCHAR) as analista,
@@ -194,7 +187,6 @@ def dashboard():
         """
         resumen_tabla = con.execute(q_tabla).fetchall()
 
-        # 3. Datos estructurados para los gráficos por ANALISTA y MES ENVIO
         q_analistas = f"""
             SELECT 
                 CAST({col_cat1} AS VARCHAR) as analista,
@@ -237,13 +229,12 @@ def dashboard():
             total_gln_general += gln_val
 
             if "DICKSON" in nombre:
-                chart_colors.append("#0d6efd")  # Azul
+                chart_colors.append("#0d6efd")
             elif "FABIAN" in nombre or "FABIÁN" in nombre:
-                chart_colors.append("#dc3545")  # Rojo
+                chart_colors.append("#dc3545")
             else:
-                chart_colors.append("#6c757d")  # Gris
+                chart_colors.append("#6c757d")
 
-        # Generación dinámica del análisis explicativo
         analisis_grafico1 = "No hay información suficiente para procesar el análisis."
         if datos_analistas and total_gln_general > 0:
             totales_por_analista = {analista: sum(meses.values()) for analista, meses in datos_analistas.items()}
@@ -290,7 +281,6 @@ def dashboard():
         )
 
     except Exception as e:
-        # Muestra el error exacto en pantalla en lugar de redirigir al Login
         return f"<h3>Error durante el procesamiento de los datos:</h3><p>{str(e)}</p><br><a href='/cargar-excel'>Volver a intentar</a>"
 
 if __name__ == "__main__":
