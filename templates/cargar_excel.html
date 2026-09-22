@@ -2,27 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cargar Excel - ANALISIS WEB</title>
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #f8f9fa; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card-cargar {
+            border-radius: 12px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+    </style>
 </head>
-<body class="bg-light d-flex align-items-center justify-content-center vh-100">
-    <div class="card p-4 shadow-sm" style="max-width: 450px; width: 100%;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Cargar Archivo</h5>
-            <span class="badge bg-secondary">Usuario: {{ usuario }}</span>
+<body>
+    <div class="card card-cargar p-4 bg-white border-0">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-dark m-0">📁 Cargar Archivo</h4>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
         </div>
+
         {% if error %}
-            <div class="alert alert-danger py-2">{{ error }}</div>
-        {% endif %}
-        <form action="/cargar" method="POST" enctype="multipart/form-data">
-            <div class="mb-3">
-                <input class="form-control" type="file" name="file" accept=".xlsx, .xls" required>
+            <div class="alert alert-danger py-2 text-center" role="alert">
+                {{ error }}
             </div>
-            <button type="submit" class="btn btn-primary w-100">Procesar Dashboard</button>
+        {% endif %}
+
+        <form action="{{ url_for('cargar_excel') }}" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label text-muted fw-semibold">Selecciona un archivo Excel (.xlsx o .xls)</label>
+                <input class="form-control" type="file" name="archivo_excel" accept=".xlsx, .xls" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">Generar Dashboard</button>
         </form>
-        <div class="text-center mt-3">
-            <a href="/logout" class="text-muted small">Cerrar Sesión</a>
-        </div>
     </div>
 </body>
 </html>
