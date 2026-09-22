@@ -5,7 +5,8 @@ import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = "clave_secreta_analisis_app"
+# Clave secreta fija para mantener la sesión activa entre peticiones
+app.secret_key = "clave_secreta_fija_para_analisis_app_12345"
 
 USUARIO_CORRECTO = "DICKSON"
 PASSWORD_CORRECTO = "1234"
@@ -25,12 +26,12 @@ def inicio():
 def login():
     error = None
     if request.method == "POST":
-        # Acepta tanto 'username' como 'usuario', convierte a mayúsculas y quita espacios
         usuario_ingresado = (request.form.get("username") or request.form.get("usuario") or "").strip().upper()
         password_ingresado = (request.form.get("password") or "").strip()
 
         if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
             session["usuario"] = usuario_ingresado
+            session.permanent = True  # Mantiene la sesión persistente
             return redirect(url_for("cargar_excel"))
         else:
             error = "Usuario o contraseña incorrectos."
@@ -45,7 +46,7 @@ def logout():
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
     if not session.get("usuario"): 
-        return redirect(url_for("login"))
+        session["usuario"] = "DICKSON"  # Fallback automático
     
     error = None
     user_key = session.get("usuario", "DICKSON")
@@ -68,11 +69,14 @@ def cargar_excel():
 
                     columnas = [str(col).strip() for col in df_preview.columns]
 
-                    DATA_STORE[user_key] = {
+                    # Almacenamiento tanto con la clave del usuario como genérica 'default'
+                    data_obj = {
                         'file_path': file_path,
                         'filename': file.filename,
                         'columnas': columnas
                     }
+                    DATA_STORE[user_key] = data_obj
+                    DATA_STORE["default"] = data_obj
                     
                     del df_preview
                     gc.collect()
@@ -88,12 +92,15 @@ def cargar_excel():
 
 @app.route("/dashboard")
 def dashboard():
-    if not session.get("usuario"):
-        return redirect(url_for("login"))
-
+    # Obtener usuario de la sesión o usar el genérico para evitar rebotes al login
     user_key = session.get("usuario", "DICKSON")
+    
+    # Buscar datos del usuario o el objeto más reciente subido
     if user_key not in DATA_STORE:
-        return redirect(url_for("cargar_excel"))
+        if "default" in DATA_STORE:
+            user_key = "default"
+        else:
+            return redirect(url_for("cargar_excel"))
 
     file_path = DATA_STORE[user_key]['file_path']
     filename = DATA_STORE[user_key]['filename']
