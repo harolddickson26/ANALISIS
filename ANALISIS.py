@@ -25,8 +25,9 @@ def inicio():
 def login():
     error = None
     if request.method == "POST":
-        usuario_ingresado = request.form.get("username", "")
-        password_ingresado = request.form.get("password", "")
+        # Acepta tanto 'username' como 'usuario', convierte a mayúsculas y quita espacios
+        usuario_ingresado = (request.form.get("username") or request.form.get("usuario") or "").strip().upper()
+        password_ingresado = (request.form.get("password") or "").strip()
 
         if usuario_ingresado == USUARIO_CORRECTO and password_ingresado == PASSWORD_CORRECTO:
             session["usuario"] = usuario_ingresado
