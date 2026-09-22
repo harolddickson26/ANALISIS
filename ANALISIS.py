@@ -14,7 +14,8 @@ PASSWORD_CORRECTO = "1234"
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATA_STORE = {}
+# Almacenamiento global del último archivo cargado para evitar pérdidas de estado en Render
+ULTIMO_ARCHIVO = {}
 
 @app.route("/")
 def inicio():
@@ -40,16 +41,16 @@ def login():
 
 @app.route("/logout")
 def logout():
-    session.pop("usuario", None)
+    session.clear()
     return redirect(url_for("login"))
 
 @app.route("/cargar-excel", methods=["GET", "POST"])
 def cargar_excel():
+    # Fallback automático para evitar redirección si falla la sesión
     if not session.get("usuario"): 
-        session["usuario"] = "DICKSON"  # Fallback automático
+        session["usuario"] = "DICKSON"
     
     error = None
-    user_key = session.get("usuario", "DICKSON")
 
     if request.method == "POST":
         if "archivo_excel" in request.files:
@@ -58,33 +59,17 @@ def cargar_excel():
                 error = "Nombre de archivo no válido."
             elif file and (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
                 try:
-                    file_path = os.path.join(UPLOAD_FOLDER, f"{user_key}_{file.filename}")
+                    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
                     file.save(file_path)
 
-                    engine_type = "calamine" if file.filename.endswith(".xlsx") else "xlrd"
-                    try:
-                        df_preview = pd.read_excel(file_path, engine=engine_type, nrows=5)
-                    except Exception:
-                        df_preview = pd.read_excel(file_path, nrows=5)
-
-                    columnas = [str(col).strip() for col in df_preview.columns]
-
-                    # Almacenamiento tanto con la clave del usuario como genérica 'default'
-                    data_obj = {
-                        'file_path': file_path,
-                        'filename': file.filename,
-                        'columnas': columnas
-                    }
-                    DATA_STORE[user_key] = data_obj
-                    DATA_STORE["default"] = data_obj
-                    
-                    del df_preview
-                    gc.collect()
+                    # Guardar referencia global persistente
+                    ULTIMO_ARCHIVO['file_path'] = file_path
+                    ULTIMO_ARCHIVO['filename'] = file.filename
                     
                     return redirect(url_for("dashboard"))
 
                 except Exception as e:
-                    error = f"Error al leer la estructura del Excel: {str(e)}"
+                    error = f"Error al guardar o procesar el Excel: {str(e)}"
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
@@ -92,18 +77,12 @@ def cargar_excel():
 
 @app.route("/dashboard")
 def dashboard():
-    # Obtener usuario de la sesión o usar el genérico para evitar rebotes al login
-    user_key = session.get("usuario", "DICKSON")
-    
-    # Buscar datos del usuario o el objeto más reciente subido
-    if user_key not in DATA_STORE:
-        if "default" in DATA_STORE:
-            user_key = "default"
-        else:
-            return redirect(url_for("cargar_excel"))
+    # Si no hay archivo en memoria, vuelve a la pantalla de carga
+    if 'file_path' not in ULTIMO_ARCHIVO:
+        return redirect(url_for("cargar_excel"))
 
-    file_path = DATA_STORE[user_key]['file_path']
-    filename = DATA_STORE[user_key]['filename']
+    file_path = ULTIMO_ARCHIVO['file_path']
+    filename = ULTIMO_ARCHIVO['filename']
 
     try:
         engine_type = "calamine" if filename.endswith(".xlsx") else "xlrd"
@@ -152,7 +131,6 @@ def dashboard():
         'categoria_1': col_cat1_real,
         'fecha': col_fecha_real
     }
-    DATA_STORE[user_key]['mapeo_columnas'] = mapeo
 
     con = duckdb.connect()
     con.register("tabla_excel", df)
@@ -213,7 +191,7 @@ def dashboard():
     except Exception:
         resumen_tabla = []
 
-    # 3. Datos estructurados para los gráficos por ANALISTA y MES ENVIO con asignación de color
+    # 3. Datos estructurados para los gráficos por ANALISTA y MES ENVIO
     q_analistas = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
