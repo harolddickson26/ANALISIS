@@ -18,9 +18,8 @@ ULTIMO_ARCHIVO = {}
 
 @app.route("/")
 def inicio():
-    if session.get("usuario"):
-        return redirect(url_for("cargar_excel"))
-    return redirect(url_for("login"))
+    # Enviar directo a cargar-excel para evitar rebotes de sesión en Render
+    return redirect(url_for("cargar_excel"))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
