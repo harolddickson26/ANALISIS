@@ -13,12 +13,10 @@ PASSWORD_CORRECTO = "1234"
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Guardará la ruta del último archivo subido
 ULTIMO_ARCHIVO = {}
 
 @app.route("/")
 def inicio():
-    # Enviar directo a cargar-excel para evitar rebotes de sesión en Render
     return redirect(url_for("cargar_excel"))
 
 @app.route("/login", methods=["GET", "POST"])
@@ -57,15 +55,14 @@ def cargar_excel():
                     file_path = os.path.join(UPLOAD_FOLDER, file.filename)
                     file.save(file_path)
 
-                    # Guardar referencia persistente
                     ULTIMO_ARCHIVO['file_path'] = file_path
                     ULTIMO_ARCHIVO['filename'] = file.filename
                     
-                    # PROCESAR Y RENDERIZAR DIRECTAMENTE (Sin hacer redirect para no perder estado)
+                    # RENDERIZAR DIRECTO CON CAPTURA TOTAL DE ERRORES
                     return generar_dashboard_response(file_path, file.filename)
 
                 except Exception as e:
-                    error = f"Error al guardar o procesar el archivo: {str(e)}"
+                    error = f"Error al guardar o subir el archivo: {str(e)}"
             else:
                 error = "Por favor, sube un archivo con extensión .xlsx o .xls."
 
@@ -80,28 +77,29 @@ def dashboard():
 
 
 def generar_dashboard_response(file_path, filename):
-    """Función auxiliar que procesa el Excel con DuckDB y renderiza directamente la plantilla"""
-    df = None
-    errores_lectura = []
-    
-    motores = ["calamine", "openpyxl", None] if filename.endswith(".xlsx") else ["xlrd", None]
-    
-    for engine in motores:
-        try:
-            if engine:
-                df = pd.read_excel(file_path, engine=engine)
-            else:
-                df = pd.read_excel(file_path)
-            break
-        except Exception as e:
-            errores_lectura.append(f"Motor {engine}: {str(e)}")
-
-    if df is None:
-        return f"<h3>Error al leer el archivo Excel:</h3><p>{'<br>'.join(errores_lectura)}</p><br><a href='/cargar-excel'>Volver a intentar</a>"
-
+    """Procesamiento ultra seguro: Atrapa cualquier tipo de excepción sin rebotar al login"""
     try:
-        df.columns = [str(col).strip() for col in df.columns]
+        df = None
+        errores_lectura = []
+        
+        motores = ["calamine", "openpyxl", None] if filename.endswith(".xlsx") else ["xlrd", None]
+        
+        for engine in motores:
+            try:
+                if engine:
+                    df = pd.read_excel(file_path, engine=engine)
+                else:
+                    df = pd.read_excel(file_path)
+                break
+            except Exception as e:
+                errores_lectura.append(f"Motor '{engine}': {str(e)}")
 
+        if df is None:
+            msg_err = "<br>".join(errores_lectura)
+            return f"<div style='padding:30px; font-family:sans-serif;'><h2>⚠️ Error al leer las pestañas del Excel:</h2><p>{msg_err}</p><br><a href='/cargar-excel'>← Volver a cargar otro archivo</a></div>"
+
+        # Limpiar nombres de columnas
+        df.columns = [str(col).strip() for col in df.columns]
         cols_existentes = {col.upper().strip(): col for col in df.columns}
         
         def buscar_col(lista_opciones):
@@ -280,7 +278,8 @@ def generar_dashboard_response(file_path, filename):
         )
 
     except Exception as e:
-        return f"<h3>Error durante el procesamiento de los datos:</h3><p>{str(e)}</p><br><a href='/cargar-excel'>Volver a intentar</a>"
+        # ATTRAPA CUALQUIER OTRA EXCEPCIÓN SIN REBOTAR AL LOGIN Y MUESTRA EL DETALLE TÉCNICO
+        return f"<div style='padding:30px; font-family:sans-serif;'><h2>❌ Error técnico en procesamiento:</h2><p>{str(e)}</p><br><a href='/cargar-excel'>← Volver a intentar</a></div>"
 
 if __name__ == "__main__":
     app.run(debug=True)
