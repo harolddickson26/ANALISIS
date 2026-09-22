@@ -3,150 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANALISIS WEB</title>
+    <title>Dashboard de Análisis</title>
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        .card-kpi { border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .kpi-title { font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 700; }
-        .kpi-value { font-size: 1.5rem; font-weight: 800; color: #0f172a; }
-        .kpi-value-highlight { color: #2563eb; }
+        body { 
+            background-color: #f8f9fa; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        .card-custom { 
+            border: none; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+        .table-custom {
+            width: 100%;
+            margin-bottom: 0;
+            border-collapse: collapse;
+        }
+        .table-custom th {
+            background-color: #212529;
+            color: #ffffff;
+            font-weight: 600;
+            padding: 12px 15px;
+            border: 1px solid #32383e;
+        }
+        .table-custom td {
+            padding: 12px 15px;
+            border: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+        .table-custom tbody tr:nth-of-type(even) { background-color: #f8f9fa; }
+        .table-custom tbody tr:hover { background-color: #f1f3f5; }
+        .table-custom tfoot tr {
+            background-color: #e9ecef;
+            font-weight: bold;
+            border-top: 2px solid #212529;
+        }
+        .table-custom tfoot td { border: 1px solid #ced4da; }
+        .chart-box { min-height: 260px; }
     </style>
 </head>
 <body>
-    <!-- BANNER DE ENCABEZADO EXACTO A LA IMAGEN -->
-    <nav class="navbar navbar-dark bg-primary px-3 shadow-sm">
-        <span class="navbar-brand font-weight-bold">
-            ANALISIS WEB <small class="text-white-50 ms-2" style="font-size: 0.85rem;">Archivo: <strong>{{ filename }}</strong></small>
-        </span>
-        <div>
-            <span class="text-white me-3 small">Bienvenido, <strong>{{ usuario }}</strong></span>
-            <a href="/cargar" class="btn btn-light btn-sm font-weight-bold">Cargar Otro Archivo</a>
-            <a href="/logout" class="btn btn-outline-light btn-sm ms-1">Salir</a>
+    <div class="container my-5">
+        
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold text-dark m-0">📊 Dashboard de Análisis</h2>
+                <small class="text-muted">Archivo: {{ filename }}</small>
+            </div>
+            <div>
+                <button onclick="descargarHTML()" class="btn btn-outline-success btn-sm me-2">📥 Descargar Dashboard (HTML)</button>
+                <a href="{{ url_for('cargar_excel') }}" class="btn btn-outline-primary btn-sm me-2">Subir otro Excel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Cerrar Sesión</a>
+            </div>
         </div>
-    </nav>
 
-    <div class="container-fluid px-4 py-4">
-        <!-- SECCIÓN 1: TARJETAS KPIS -->
+        <!-- Tarjetas KPIs -->
         <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <div class="card card-kpi p-3">
-                    <div class="kpi-title">TOTAL GALONES</div>
-                    <div class="kpi-value">{{ kpis.total_gln }}</div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">TOTAL GALONES</small>
+                    <h4 class="text-primary fw-bold mt-2 mb-0">{{ kpis.total_gln }} GLN</h4>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card card-kpi p-3">
-                    <div class="kpi-title">DESC. X GALÓN</div>
-                    <div class="kpi-value">{{ kpis.total_desc_galon }}</div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">DESC X GALÓN</small>
+                    <h4 class="text-success fw-bold mt-2 mb-0">$ {{ kpis.total_desc_galon }}</h4>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card card-kpi p-3">
-                    <div class="kpi-title">OBSERVACIONES / ADICIONAL</div>
-                    <div class="kpi-value">{{ kpis.total_obsv }}</div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">OBSERVACIONES</small>
+                    <h4 class="text-warning fw-bold mt-2 mb-0">$ {{ kpis.total_obsv }}</h4>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card card-kpi p-3">
-                    <div class="kpi-title">GRAN TOTAL DESCUENTO</div>
-                    <div class="kpi-value kpi-value-highlight">{{ kpis.gran_total_desc }}</div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card card-kpi p-3">
-                    <div class="kpi-title">TOTAL REGISTROS</div>
-                    <div class="kpi-value">{{ kpis.total_registros }}</div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white">
+                    <small class="text-muted fw-semibold">GRAN TOTAL DESC</small>
+                    <h4 class="text-danger fw-bold mt-2 mb-0">$ {{ kpis.gran_total_desc }}</h4>
                 </div>
             </div>
         </div>
 
-        <div class="row g-4">
-            <!-- SECCIÓN 2: GRÁFICO 1 (TOTAL DESCUENTO POR ANALISTA) -->
-            <div class="col-lg-6">
-                <div class="card p-4 border-0 shadow-sm bg-white h-100">
-                    <h6 class="fw-bold text-dark mb-4">Total Descuento por Analista</h6>
-                    <div style="position: relative; height: 320px;">
-                        <canvas id="chartAnalistas"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECCIÓN 3: TABLA DE RESUMEN POR ANALISTA -->
-            <div class="col-lg-6">
-                <div class="card p-4 border-0 shadow-sm bg-white h-100">
-                    <h6 class="fw-bold text-dark mb-3">Resumen Consolidado por Analista</h6>
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Analista</th>
-                                    <th class="text-end">Registros</th>
-                                    <th class="text-end">Galones</th>
-                                    <th class="text-end">Total Descuento</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in tabla %}
-                                <tr>
-                                    <td class="fw-bold">{{ row.analista }}</td>
-                                    <td class="text-end">{{ row.registros }}</td>
-                                    <td class="text-end">{{ row.galones }}</td>
-                                    <td class="text-end text-primary fw-bold">{{ row.total_descuento }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECCIÓN 4: CONCLUSIONES Y HALLAZGOS -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card p-4 border-0 shadow-sm bg-white">
-                    <h6 class="fw-bold text-dark mb-3">Conclusiones y Hallazgos del Análisis</h6>
-                    <ul class="mb-0 ps-3">
-                        {% for item in conclusiones %}
-                            <li class="mb-2 text-secondary">{{ item | safe }}</li>
+        <!-- Tabla Estructurada -->
+        <div class="card card-custom p-4 mb-4 bg-white">
+            <h5 class="fw-bold mb-3 text-secondary">📋 Resumen de Descuentos por Analista y Mes</h5>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Analista</th>
+                            <th>Mes Envío</th>
+                            <th class="text-end">Total Galones</th>
+                            <th class="text-end">Suma DESC X GALON ($)</th>
+                            <th class="text-end">Suma OBSERVACION ($)</th>
+                            <th class="text-end">Total Descuentos ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registros %}
+                        <tr>
+                            <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
+                            <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
+                            <td class="text-end">{{ "{:,.2f}".format(reg[2]) if reg[2] is not none else '0.00' }} GLN</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No se encontraron registros.</td>
+                        </tr>
                         {% endfor %}
-                    </ul>
-                </div>
+                    </tbody>
+                    {% if registros %}
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" class="text-uppercase">TOTAL GENERAL</td>
+                            <td class="text-end">{{ kpis.total_gln }} GLN</td>
+                            <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
+                            <td class="text-end">$ {{ kpis.total_obsv }}</td>
+                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
             </div>
         </div>
-    </div>
 
-    <script>
-        const ctxAnalista = document.getElementById('chartAnalistas').getContext('2d');
-        new Chart(ctxAnalista, {
-            type: 'bar',
-            data: {
-                labels: {{ labels_analista | tojson }},
-                datasets: [{
-                    label: 'Total Descuento ($)',
-                    data: {{ data_analista | tojson }},
-                    backgroundColor: '#56b6f7',
-                    borderColor: '#3b82f6',
-                    borderWidth: 1,
-                    barThickness: 120
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { 
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) { return '$' + value.toLocaleString(); }
-                        }
+        <!-- Sección de Gráficos Analíticos -->
+        {% if chart_labels %}
+        <div class="row g-4">
+            
+            <!-- 1. Galones por Analista y Mes (PRIMER GRÁFICO) -->
+            <div class="col-12">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">1. Galones por Analista y Mes (DICKSON vs FABIÁN)</h6>
+                    <div class="chart-box" style="min-height: 300px;">
+                        <canvas id="chartAnalistasGrouped"></canvas>
+                    </div>
+                    
+                    <!-- Análisis Estadístico Dinámico -->
+                    {% if analisis_grafico1 %}
+                    <div class="alert alert-info mt-3 shadow-sm mb-0" role="alert" style="border-left: 5px solid #0d6efd; background-color: #f8f9fa; color: #212529;">
+                        {{ analisis_grafico1 | safe }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 2. Barras Apiladas -->
+            <div class="col-md-6">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">2. Composición de Descuentos (Apiladas)</h6>
+                    <div class="chart-box">
+                        <canvas id="chartStacked"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Comparación Directa de Conceptos -->
+            <div class="col-md-6">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">3. Comparación Directa de Conceptos (Agrupadas)</h6>
+                    <div class="chart-box">
+                        <canvas id="chartGrouped"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Combinado (Pesos vs Galones) -->
+            <div class="col-md-6">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">4. Relación Descuentos ($) vs Galones (GLN)</h6>
+                    <div class="chart-box">
+                        <canvas id="chartCombo"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Gráfico de Dona -->
+            <div class="col-md-6">
+                <div class="card card-custom p-4 bg-white h-100">
+                    <h6 class="fw-bold mb-3 text-secondary">5. Participación Porcentual del Total</h6>
+                    <div class="chart-box d-flex justify-content-center">
+                        <canvas id="chartDoughnut" style="max-height: 240px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <script>
+            const labels = {{ chart_labels | tojson }};
+            const dataDesc = {{ chart_desc | tojson }};
+            const dataObsv = {{ chart_obsv | tojson }};
+            const dataTotal = {{ chart_total | tojson }};
+            const dataGln = {{ chart_gln | tojson }};
+            const colors = {{ chart_colors | tojson }};
+
+            // 1. Galones por Analista y Mes (DICKSON Azul, FABIAN Rojo)
+            new Chart(document.getElementById('chartAnalistasGrouped'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Galones (GLN)',
+                        data: dataGln,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 2. Barras Apiladas
+            new Chart(document.getElementById('chartStacked'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
+                        { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#ffc107' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+
+            // 3. Barras Agrupadas por Concepto
+            new Chart(document.getElementById('chartGrouped'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Desc x Galón ($)', data: dataDesc, backgroundColor: '#0d6efd' },
+                        { label: 'Observaciones ($)', data: dataObsv, backgroundColor: '#fd7e14' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 4. Combinado (Barras con color por analista + Línea de Galones)
+            new Chart(document.getElementById('chartCombo'), {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { type: 'bar', label: 'Total Descuentos ($)', data: dataTotal, backgroundColor: colors, yAxisID: 'y' },
+                        { type: 'line', label: 'Total Galones (GLN)', data: dataGln, borderColor: '#20c997', borderWidth: 3, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { type: 'linear', position: 'left', beginAtZero: true },
+                        y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
                     }
                 }
-            }
-        });
+            });
+
+            // 5. Dona (Usa los mismos colores asignados)
+            new Chart(document.getElementById('chartDoughnut'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataTotal,
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        </script>
+        {% endif %}
+
+    </div>
+
+    <!-- Script para descargar informe HTML independiente -->
+    <script>
+        function descargarHTML() {
+            const docClone = document.documentElement.cloneNode(true);
+            
+            // Elimina los botones de la barra de navegación del informe generado
+            const botones = docClone.querySelectorAll('.btn');
+            botones.forEach(btn => btn.remove());
+
+            const htmlContent = "<!DOCTYPE html>\n" + docClone.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Dashboard_Analisis_' + new Date().toISOString().slice(0, 10) + '.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
