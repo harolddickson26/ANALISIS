@@ -102,9 +102,10 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
     col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "CC", "COSTO"]) or "CENTRO DE COSTO"
+    col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA", "NUMERO FACTURA"]) or "FACTURAS HD"
 
     cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
-    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real]:
+    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real, col_fact_real]:
         if col not in df.columns:
             df[col] = None
 
@@ -123,6 +124,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_cat1 = f'"{col_cat1_real}"'
     col_fecha = f'"{col_fecha_real}"'
     col_cc = f'"{col_cc_real}"'
+    col_fact = f'"{col_fact_real}"'
 
     kpis = {
         'total_gln': "0.00",
@@ -155,12 +157,13 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen con CENTRO DE COSTOS (Sin duplicados por analista y mes)
+    # 2. Tabla Resumen con CENTRO DE COSTOS y NÚMERO DE FACTURAS (Únicas por analista y mes)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
             COUNT(DISTINCT CAST({col_cc} AS VARCHAR)) as total_centros_costo,
+            COUNT(DISTINCT CAST({col_fact} AS VARCHAR)) as total_facturas,
             COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
             COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
             COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
