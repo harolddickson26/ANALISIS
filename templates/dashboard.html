@@ -95,6 +95,7 @@
                             <th>Analista</th>
                             <th>Mes Envío</th>
                             <th class="text-center">Centro de Costos</th>
+                            <th class="text-center">Número de Facturas</th>
                             <th class="text-end">Total Galones</th>
                             <th class="text-end">Suma DESC X GALON ($)</th>
                             <th class="text-end">Suma OBSERVACION ($)</th>
@@ -107,21 +108,22 @@
                             <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
                             <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
                             <td class="text-center fw-bold text-secondary">{{ reg[2] if reg[2] is not none else '0' }}</td>
-                            <td class="text-end">{{ "{:,.2f}".format(reg[3]) if reg[3] is not none else '0.00' }} GLN</td>
-                            <td class="text-end">$ {{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }}</td>
+                            <td class="text-center fw-bold text-primary">{{ reg[3] if reg[3] is not none else '0' }}</td>
+                            <td class="text-end">{{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }} GLN</td>
                             <td class="text-end">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
-                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[6]) if reg[6] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[6]) if reg[6] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[7]) if reg[7] is not none else '0.00' }}</td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted">No se encontraron registros.</td>
+                            <td colspan="8" class="text-center text-muted">No se encontraron registros.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                     {% if registros %}
                     <tfoot>
                         <tr>
-                            <td colspan="3" class="text-uppercase">TOTAL GENERAL</td>
+                            <td colspan="4" class="text-uppercase">TOTAL GENERAL</td>
                             <td class="text-end">{{ kpis.total_gln }} GLN</td>
                             <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
                             <td class="text-end">$ {{ kpis.total_obsv }}</td>
