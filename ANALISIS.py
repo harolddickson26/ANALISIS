@@ -1,5 +1,6 @@
 import os
 import gc
+import json
 import duckdb
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session
@@ -101,11 +102,12 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
-    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "CC", "COSTO"]) or "CENTRO DE COSTO"
-    col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA", "NUMERO FACTURA"]) or "FACTURAS HD"
+    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "EDS", "COSTO"]) or "CENTRO DE COSTO"
+    col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA"]) or "FACTURAS HD"
+    col_prod_real = buscar_col(["PRODUCTO", "COMBUSTIBLE", "ITEM"]) or "PRODUCTO"
 
     cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
-    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real, col_fact_real]:
+    for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real, col_fact_real, col_prod_real]:
         if col not in df.columns:
             df[col] = None
 
@@ -125,6 +127,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_fecha = f'"{col_fecha_real}"'
     col_cc = f'"{col_cc_real}"'
     col_fact = f'"{col_fact_real}"'
+    col_prod = f'"{col_prod_real}"'
 
     kpis = {
         'total_gln': "0.00",
@@ -134,7 +137,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         'total_registros': "0"
     }
 
-    # 1. KPIs
+    # 1. KPIs Generales
     try:
         query_kpis = f"""
             SELECT 
@@ -157,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen con CENTRO DE COSTOS y NÚMERO DE FACTURAS (Únicas por analista y mes)
+    # 2. CUADRO ORIGINAL (SE MANTIENE TAL CUAL)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -177,6 +180,23 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         resumen_tabla = []
 
+    # 3. EXTRAER REGISTROS DETALLADOS EN JSON PARA SLICERS / GRÁFICOS DINÁMICOS
+    q_raw = f"""
+        SELECT 
+            UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'N/A'))) as analista,
+            SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
+            UPPER(TRIM(COALESCE(CAST({col_cc} AS VARCHAR), 'N/A'))) as eds,
+            UPPER(TRIM(COALESCE(CAST({col_prod} AS VARCHAR), 'GENERAL'))) as producto,
+            COALESCE(TRY_CAST({col_gln} AS DOUBLE), 0) as gln,
+            (COALESCE(TRY_CAST({col_desc_galon} AS DOUBLE), 0) + COALESCE(TRY_CAST({col_obsv} AS DOUBLE), 0)) as dcto_total
+        FROM tabla_excel
+    """
+    try:
+        df_raw = con.execute(q_raw).fetchdf()
+        raw_json = df_raw.to_json(orient='records')
+    except Exception:
+        raw_json = "[]"
+
     del df
     gc.collect()
 
@@ -184,7 +204,8 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         "dashboard.html",
         kpis=kpis,
         registros=resumen_tabla,
-        filename=filename
+        filename=filename,
+        raw_data_json=raw_json
     )
 
 if __name__ == "__main__":
