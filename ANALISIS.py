@@ -102,7 +102,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
-    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "EDS", "CC", "COSTO"]) or "CENTRO DE COSTO"
+    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "EDS", "CEN", "CC", "COSTO"]) or "CENTRO DE COSTO"
     col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA", "NUMERO FACTURA"]) or "FACTURAS HD"
     col_prod_real = buscar_col(["PRODUCTO", "COMBUSTIBLE", "DESCRIPCION PRODUCTO", "PROD"]) or "PRODUCTO"
 
@@ -137,7 +137,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         'total_registros': "0"
     }
 
-    # 1. KPIs Generales
+    # 1. KPIs Generales Totales
     try:
         query_kpis = f"""
             SELECT 
@@ -160,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Original (Se mantiene exactamente igual)
+    # 2. Tabla Resumen Principal (Intacta, sin cambios)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -180,12 +180,12 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         resumen_tabla = []
 
-    # 3. Registros para Filtros Dinámicos e Gráficos Interactivos
+    # 3. Datos Crudos para Filtros Dinámicos, KPIs Específicos y Gráficos
     q_raw_data = f"""
         SELECT 
             UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'DESCONOCIDO'))) as analista,
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
-            UPPER(TRIM(COALESCE(CAST({col_cc} AS VARCHAR), 'SIN CC'))) as centro_costos,
+            UPPER(TRIM(COALESCE(CAST({col_cc} AS VARCHAR), 'SIN CC/EDS'))) as centro_costos,
             UPPER(TRIM(COALESCE(CAST({col_prod} AS VARCHAR), 'GENERAL'))) as producto,
             CAST({col_fact} AS VARCHAR) as factura_hd,
             COALESCE(TRY_CAST({col_gln} AS DOUBLE), 0) as gln,
