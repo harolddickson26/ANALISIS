@@ -102,9 +102,9 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     col_obsv_real = buscar_col(["OBSERVACION", "OBSERVACIONES", "OBSV", "ADICIONAL"]) or "OBSV ADICIONAL"
     col_cat1_real = buscar_col(["ANALISTA", "USUARIO", "RESPONSABLE"]) or "ANALISTA"
     col_fecha_real = buscar_col(["MES ENVIO", "FECHA", "MES"]) or "MES ENVIO"
-    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "EDS", "COSTO"]) or "CENTRO DE COSTO"
-    col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA"]) or "FACTURAS HD"
-    col_prod_real = buscar_col(["PRODUCTO", "COMBUSTIBLE", "ITEM"]) or "PRODUCTO"
+    col_cc_real = buscar_col(["CENTRO DE COSTO", "CENTRO DE COSTOS", "CENTRO COSTO", "EDS", "CC", "COSTO"]) or "CENTRO DE COSTO"
+    col_fact_real = buscar_col(["FACTURAS HD", "FACTURA HD", "FACTURA", "FACTURAS", "NRO FACTURA", "NUMERO FACTURA"]) or "FACTURAS HD"
+    col_prod_real = buscar_col(["PRODUCTO", "COMBUSTIBLE", "DESCRIPCION PRODUCTO", "PROD"]) or "PRODUCTO"
 
     cols_a_procesar = [col_gln_real, col_desc_real, col_obsv_real]
     for col in [col_gln_real, col_desc_real, col_obsv_real, col_cat1_real, col_fecha_real, col_cc_real, col_fact_real, col_prod_real]:
@@ -160,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. CUADRO ORIGINAL (SE MANTIENE TAL CUAL)
+    # 2. Tabla Resumen Original (Se mantiene intacta)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -180,22 +180,37 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         resumen_tabla = []
 
-    # 3. EXTRAER REGISTROS DETALLADOS EN JSON PARA SLICERS / GRÁFICOS DINÁMICOS
-    q_raw = f"""
+    # 3. Extracción de Registros para Filtros Dinámicos e Gráficos Interactivos
+    q_raw_data = f"""
         SELECT 
-            UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'N/A'))) as analista,
+            UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'DESCONOCIDO'))) as analista,
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
-            UPPER(TRIM(COALESCE(CAST({col_cc} AS VARCHAR), 'N/A'))) as eds,
+            UPPER(TRIM(COALESCE(CAST({col_cc} AS VARCHAR), 'SIN CC'))) as centro_costos,
             UPPER(TRIM(COALESCE(CAST({col_prod} AS VARCHAR), 'GENERAL'))) as producto,
+            CAST({col_fact} AS VARCHAR) as factura_hd,
             COALESCE(TRY_CAST({col_gln} AS DOUBLE), 0) as gln,
-            (COALESCE(TRY_CAST({col_desc_galon} AS DOUBLE), 0) + COALESCE(TRY_CAST({col_obsv} AS DOUBLE), 0)) as dcto_total
+            COALESCE(TRY_CAST({col_desc_galon} AS DOUBLE), 0) as desc_galon,
+            COALESCE(TRY_CAST({col_obsv} AS DOUBLE), 0) as obsv
         FROM tabla_excel
     """
     try:
-        df_raw = con.execute(q_raw).fetchdf()
-        raw_json = df_raw.to_json(orient='records')
+        raw_rows = con.execute(q_raw_data).fetchall()
+        raw_data = [
+            {
+                "analista": r[0],
+                "mes": r[1] if r[1] else "N/A",
+                "cc": r[2],
+                "producto": r[3],
+                "factura": r[4],
+                "gln": r[5],
+                "desc": r[6],
+                "obsv": r[7],
+                "total_desc": r[6] + r[7]
+            }
+            for r in raw_rows
+        ]
     except Exception:
-        raw_json = "[]"
+        raw_data = []
 
     del df
     gc.collect()
@@ -205,7 +220,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         kpis=kpis,
         registros=resumen_tabla,
         filename=filename,
-        raw_data_json=raw_json
+        raw_data_json=json.dumps(raw_data)
     )
 
 if __name__ == "__main__":
