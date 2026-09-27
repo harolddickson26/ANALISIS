@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Análisis</title>
+    <title>Dashboard de Alto Impacto - Análisis Operativo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
-            background-color: #f8f9fa; 
+            background-color: #f4f6f9; 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
         }
         .card-custom { 
@@ -32,7 +33,7 @@
             border: 1px solid #dee2e6;
             vertical-align: middle;
         }
-        .table-custom tbody tr:nth-of-type(even) { background-color: #f8f9fa; }
+        .table-custom tbody tr:nth-of-type(even) { background-color: #ffffff; }
         .table-custom tbody tr:hover { background-color: #f1f3f5; }
         .table-custom tfoot tr {
             background-color: #e9ecef;
@@ -40,16 +41,19 @@
             border-top: 2px solid #212529;
         }
         .table-custom tfoot td { border: 1px solid #ced4da; }
+        .badge-analista { font-size: 0.85rem; padding: 5px 10px; border-radius: 6px; }
+        .badge-dickson { background-color: #0d6efd; color: #fff; }
+        .badge-fabian { background-color: #dc3545; color: #fff; }
     </style>
 </head>
 <body>
-    <div class="container my-5">
+    <div class="container-fluid px-4 my-4">
         
         <!-- Encabezado -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 card-custom">
             <div>
-                <h2 class="fw-bold text-dark m-0">📊 Dashboard de Análisis</h2>
-                <small class="text-muted">Archivo: {{ filename }}</small>
+                <h2 class="fw-bold text-dark m-0">📊 Dashboard Ejecutivo de Análisis</h2>
+                <small class="text-muted">Archivo activo: <strong>{{ filename }}</strong></small>
             </div>
             <div>
                 <a href="{{ url_for('cargar_excel') }}" class="btn btn-outline-primary btn-sm me-2">Subir otro Excel</a>
@@ -57,37 +61,94 @@
             </div>
         </div>
 
-        <!-- Tarjetas KPIs -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card card-custom p-3 text-center bg-white">
-                    <small class="text-muted fw-semibold">TOTAL GALONES</small>
-                    <h4 class="text-primary fw-bold mt-2 mb-0">{{ kpis.total_gln }} GLN</h4>
+        <!-- BLOQUE 4: FILTROS INTERACTIVOS (SLICERS CLAVE) -->
+        <div class="card card-custom p-3 mb-4 bg-white">
+            <h6 class="fw-bold text-secondary mb-2">🔍 Filtros Interactivos (Slicers)</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted">Mes de Envío</label>
+                    <select id="slicerMes" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                        <option value="TODOS">Todos los meses</option>
+                    </select>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3 text-center bg-white">
-                    <small class="text-muted fw-semibold">DESC X GALÓN</small>
-                    <h4 class="text-success fw-bold mt-2 mb-0">$ {{ kpis.total_desc_galon }}</h4>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted">Centro de Costos / EDS</label>
+                    <select id="slicerEDS" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                        <option value="TODOS">Todas las EDS</option>
+                    </select>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3 text-center bg-white">
-                    <small class="text-muted fw-semibold">OBSERVACIONES</small>
-                    <h4 class="text-warning fw-bold mt-2 mb-0">$ {{ kpis.total_obsv }}</h4>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card card-custom p-3 text-center bg-white">
-                    <small class="text-muted fw-semibold">GRAN TOTAL DESC</small>
-                    <h4 class="text-danger fw-bold mt-2 mb-0">$ {{ kpis.gran_total_desc }}</h4>
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold text-muted">Producto / Combustible</label>
+                    <select id="slicerProducto" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                        <option value="TODOS">Todos los Productos</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <!-- Tabla Estructurada -->
+        <!-- BLOQUE 1: TARJETAS DE KPIS COMPARATIVAS -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white border-start border-4 border-primary">
+                    <small class="text-muted fw-semibold">TOTAL GALONES GESTIONADOS</small>
+                    <h3 id="kpiGln" class="text-primary fw-bold mt-2 mb-0">{{ kpis.total_gln }} GLN</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white border-start border-4 border-success">
+                    <small class="text-muted fw-semibold">AHORROS Y DESCUENTOS TOTALES</small>
+                    <h3 id="kpiDcto" class="text-success fw-bold mt-2 mb-0">$ {{ kpis.gran_total_desc }}</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white border-start border-4 border-warning">
+                    <small class="text-muted fw-semibold">DESCUENTO PROMEDIO / GLN</small>
+                    <h3 id="kpiProm" class="text-warning fw-bold mt-2 mb-0">$ 0.00</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-custom p-3 text-center bg-white border-start border-4 border-info">
+                    <small class="text-muted fw-semibold">REGISTROS EVALUADOS</small>
+                    <h3 id="kpiReg" class="text-info fw-bold mt-2 mb-0">{{ kpis.total_registros }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOQUE 2: GRÁFICOS DE COMPARACIÓN DIRECTA (ANALISTA VS ANALISTA) -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-dark mb-3">📈 Galonaje y Valor Monetario por Analista</h6>
+                    <canvas id="chartBarras" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-dark mb-3">📅 Evolución Temporal de Compras (Mes a Mes)</h6>
+                    <canvas id="chartLineas" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOQUE 3: SEGMENTACIÓN Y DISTRIBUCIÓN OPERATIVA -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-dark mb-3">⛽ Participación por Tipo de Producto</h6>
+                    <canvas id="chartProducto" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-dark mb-3">🏬 Distribución de Galonaje por Centro de Costos / EDS</h6>
+                    <canvas id="chartEDS" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUADRO CONSERVADO ORIGINAL (TOTALMENTE INTACTO) -->
         <div class="card card-custom p-4 mb-4 bg-white">
-            <h5 class="fw-bold mb-3 text-secondary">📋 Resumen de Descuentos por Analista y Mes</h5>
+            <h5 class="fw-bold mb-3 text-secondary">📋 Resumen de Descuentos por Analista y Mes (Matriz Original)</h5>
             <div class="table-responsive">
                 <table class="table-custom">
                     <thead>
@@ -105,7 +166,15 @@
                     <tbody>
                         {% for reg in registros %}
                         <tr>
-                            <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
+                            <td class="fw-semibold">
+                                {% if 'DICKSON' in reg[0]|upper %}
+                                    <span class="badge badge-analista badge-dickson">{{ reg[0] }}</span>
+                                {% elif 'FABIAN' in reg[0]|upper %}
+                                    <span class="badge badge-analista badge-fabian">{{ reg[0] }}</span>
+                                {% else %}
+                                    {{ reg[0] if reg[0] else 'N/A' }}
+                                {% endif %}
+                            </td>
                             <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
                             <td class="text-center fw-bold text-secondary">{{ reg[2] if reg[2] is not none else '0' }}</td>
                             <td class="text-center fw-bold text-primary">{{ reg[3] if reg[3] is not none else '0' }}</td>
@@ -136,5 +205,147 @@
         </div>
 
     </div>
+
+    <!-- SCRIPTS PARA LOS GRÁFICOS Y SLICERS -->
+    <script>
+        const rawData = {{ raw_data_json | safe }};
+
+        let chartBarrasInst, chartLineasInst, chartProdInst, chartEdsInst;
+
+        function inicializarSlicers() {
+            const meses = [...new Set(rawData.map(d => d.mes_envio))].sort();
+            const edss = [...new Set(rawData.map(d => d.eds))].sort();
+            const prods = [...new Set(rawData.map(d => d.producto))].sort();
+
+            const selMes = document.getElementById('slicerMes');
+            meses.forEach(m => { if(m) selMes.innerHTML += `<option value="${m}">${m}</option>`; });
+
+            const selEds = document.getElementById('slicerEDS');
+            edss.forEach(e => { if(e) selEds.innerHTML += `<option value="${e}">${e}</option>`; });
+
+            const selProd = document.getElementById('slicerProducto');
+            prods.forEach(p => { if(p) selProd.innerHTML += `<option value="${p}">${p}</option>`; });
+        }
+
+        function aplicarFiltros() {
+            const mesVal = document.getElementById('slicerMes').value;
+            const edsVal = document.getElementById('slicerEDS').value;
+            const prodVal = document.getElementById('slicerProducto').value;
+
+            const datosFiltrados = rawData.filter(d => {
+                const matchMes = (mesVal === 'TODOS' || d.mes_envio === mesVal);
+                const matchEds = (edsVal === 'TODOS' || d.eds === edsVal);
+                const matchProd = (prodVal === 'TODOS' || d.producto === prodVal);
+                return matchMes && matchEds && matchProd;
+            });
+
+            actualizarDashboard(datosFiltrados);
+        }
+
+        function actualizarDashboard(data) {
+            let totalGln = 0, totalDcto = 0;
+            data.forEach(d => {
+                totalGln += d.gln;
+                totalDcto += d.dcto_total;
+            });
+
+            document.getElementById('kpiGln').innerText = totalGln.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' GLN';
+            document.getElementById('kpiDcto').innerText = '$ ' + totalDcto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('kpiReg').innerText = data.length.toLocaleString();
+
+            const prom = totalGln > 0 ? (totalDcto / totalGln) : 0;
+            document.getElementById('kpiProm').innerText = '$ ' + prom.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            // 1. Barras Agrupadas por Analista
+            const porAnalista = {};
+            data.forEach(d => {
+                if(!porAnalista[d.analista]) porAnalista[d.analista] = { gln: 0, dcto: 0 };
+                porAnalista[d.analista].gln += d.gln;
+                porAnalista[d.analista].dcto += d.dcto_total;
+            });
+
+            const labelsAnalista = Object.keys(porAnalista);
+            const dataGlnAnalista = labelsAnalista.map(a => porAnalista[a].gln);
+            const dataDctoAnalista = labelsAnalista.map(a => porAnalista[a].dcto);
+
+            if(chartBarrasInst) chartBarrasInst.destroy();
+            chartBarrasInst = new Chart(document.getElementById('chartBarras'), {
+                type: 'bar',
+                data: {
+                    labels: labelsAnalista,
+                    datasets: [
+                        { label: 'Galones', data: dataGlnAnalista, backgroundColor: '#0d6efd' },
+                        { label: 'Descuento ($)', data: dataDctoAnalista, backgroundColor: '#198754' }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 2. Líneas Evolución Mensual
+            const meses = [...new Set(data.map(d => d.mes_envio))].sort();
+            const analistas = [...new Set(data.map(d => d.analista))];
+            const datasetsLineas = analistas.map((an, idx) => {
+                const color = an.includes('DICKSON') ? '#0d6efd' : (an.includes('FABIAN') ? '#dc3545' : '#6c757d');
+                return {
+                    label: an,
+                    data: meses.map(m => data.filter(d => d.analista === an && d.mes_envio === m).reduce((acc, c) => acc + c.gln, 0)),
+                    borderColor: color,
+                    fill: false
+                };
+            });
+
+            if(chartLineasInst) chartLineasInst.destroy();
+            chartLineasInst = new Chart(document.getElementById('chartLineas'), {
+                type: 'line',
+                data: { labels: meses, datasets: datasetsLineas },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 3. Torta / Donut Producto
+            const porProd = {};
+            data.forEach(d => {
+                porProd[d.producto] = (porProd[d.producto] || 0) + d.gln;
+            });
+
+            if(chartProdInst) chartProdInst.destroy();
+            chartProdInst = new Chart(document.getElementById('chartProducto'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(porProd),
+                    datasets: [{
+                        data: Object.values(porProd),
+                        backgroundColor: ['#0d6efd', '#ffc107', '#198754', '#0dcaf0', '#6c757d']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 4. Barras Horizontales EDS Top 10
+            const porEDS = {};
+            data.forEach(d => {
+                porEDS[d.eds] = (porEDS[d.eds] || 0) + d.gln;
+            });
+            const sortedEDS = Object.keys(porEDS).sort((a,b) => porEDS[b] - porEDS[a]).slice(0, 10);
+
+            if(chartEdsInst) chartEdsInst.destroy();
+            chartEdsInst = new Chart(document.getElementById('chartEDS'), {
+                type: 'bar',
+                data: {
+                    labels: sortedEDS,
+                    datasets: [{
+                        label: 'Galones',
+                        data: sortedEDS.map(e => porEDS[e]),
+                        backgroundColor: '#0dcaf0'
+                    }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        window.onload = function() {
+            inicializarSlicers();
+            aplicarFiltros();
+        };
+    </script>
 </body>
 </html>
