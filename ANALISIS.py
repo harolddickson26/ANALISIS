@@ -160,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Original (Se mantiene intacta)
+    # 2. Tabla Resumen Original (Se mantiene exactamente igual)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
@@ -180,7 +180,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         resumen_tabla = []
 
-    # 3. Extracción de Registros para Filtros Dinámicos e Gráficos Interactivos
+    # 3. Registros para Filtros Dinámicos e Gráficos Interactivos
     q_raw_data = f"""
         SELECT 
             UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'DESCONOCIDO'))) as analista,
