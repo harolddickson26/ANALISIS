@@ -160,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Principal Estática
+    # 2. Tabla Resumen Principal Estática (Al final)
     q_tabla = f"""
         SELECT 
             CAST({col_cat1} AS VARCHAR) as analista,
