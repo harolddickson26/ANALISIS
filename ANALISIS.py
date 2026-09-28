@@ -160,7 +160,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Principal Estática (Mes Envío de 1ª Columna y Total Descuento después de Total Galones)
+    # 2. Tabla Resumen Principal Estática (Mes Envío 1°, Total Descuentos 6°)
     q_tabla = f"""
         SELECT 
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
