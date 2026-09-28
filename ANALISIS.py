@@ -160,19 +160,19 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Principal Estática (Al final)
+    # 2. Tabla Resumen Principal Estática (Mes Envío de 1ª Columna y Total Descuento después de Total Galones)
     q_tabla = f"""
         SELECT 
-            CAST({col_cat1} AS VARCHAR) as analista,
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
+            CAST({col_cat1} AS VARCHAR) as analista,
             COUNT(DISTINCT CAST({col_cc} AS VARCHAR)) as total_centros_costo,
             COUNT(DISTINCT CAST({col_fact} AS VARCHAR)) as total_facturas,
             COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
+            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento,
             COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) as sum_desc_galon,
-            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv,
-            (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento
+            COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv
         FROM tabla_excel
-        GROUP BY analista, mes_envio
+        GROUP BY mes_envio, analista
         ORDER BY mes_envio ASC, analista ASC
     """
     try:
