@@ -144,14 +144,14 @@
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th>Analista</th>
                             <th>Mes Envío</th>
+                            <th>Analista</th>
                             <th class="text-center">Centro de Costos</th>
                             <th class="text-center">Número de Facturas</th>
                             <th class="text-end">Total Galones</th>
+                            <th class="text-end">Total Descuentos ($)</th>
                             <th class="text-end">Suma DESC X GALON ($)</th>
                             <th class="text-end">Suma OBSERVACION ($)</th>
-                            <th class="text-end">Total Descuentos ($)</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyDinamico">
@@ -280,34 +280,34 @@
             </div>
         </div>
 
-        <!-- BLOQUE DE TABLA GENERAL ESTÁTICA (ORIGINAL AL FINAL) -->
+        <!-- BLOQUE DE TABLA GENERAL ESTÁTICA (CON COLUMNAS REORDENADAS) -->
         <div class="card card-custom p-4 mb-4 bg-white">
             <h5 class="fw-bold mb-3 text-secondary">📋 Resumen General Estático (Consolidado de Archivo)</h5>
             <div class="table-responsive">
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th>Analista</th>
                             <th>Mes Envío</th>
+                            <th>Analista</th>
                             <th class="text-center">Centro de Costos</th>
                             <th class="text-center">Número de Facturas</th>
                             <th class="text-end">Total Galones</th>
+                            <th class="text-end">Total Descuentos ($)</th>
                             <th class="text-end">Suma DESC X GALON ($)</th>
                             <th class="text-end">Suma OBSERVACION ($)</th>
-                            <th class="text-end">Total Descuentos ($)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for reg in registros %}
                         <tr>
-                            <td class="fw-semibold">{{ reg[0] if reg[0] else 'N/A' }}</td>
-                            <td>{{ reg[1] if reg[1] else 'N/A' }}</td>
+                            <td>{{ reg[0] if reg[0] else 'N/A' }}</td>
+                            <td class="fw-semibold">{{ reg[1] if reg[1] else 'N/A' }}</td>
                             <td class="text-center fw-bold text-secondary">{{ reg[2] if reg[2] is not none else '0' }}</td>
                             <td class="text-center fw-bold text-primary">{{ reg[3] if reg[3] is not none else '0' }}</td>
                             <td class="text-end">{{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }} GLN</td>
-                            <td class="text-end">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
+                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
                             <td class="text-end">$ {{ "{:,.2f}".format(reg[6]) if reg[6] is not none else '0.00' }}</td>
-                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[7]) if reg[7] is not none else '0.00' }}</td>
+                            <td class="text-end">$ {{ "{:,.2f}".format(reg[7]) if reg[7] is not none else '0.00' }}</td>
                         </tr>
                         {% else %}
                         <tr>
@@ -320,9 +320,9 @@
                         <tr>
                             <td colspan="4" class="text-uppercase">TOTAL GENERAL EXCEL</td>
                             <td class="text-end">{{ kpis.total_gln }} GLN</td>
+                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
                             <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
                             <td class="text-end">$ {{ kpis.total_obsv }}</td>
-                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
                         </tr>
                     </tfoot>
                     {% endif %}
@@ -440,11 +440,11 @@
             let tGln = 0, tDescGln = 0, tObsv = 0, tDescTotal = 0;
 
             datos.forEach(d => {
-                const key = `${d.analista}||${d.mes}`;
+                const key = `${d.mes}||${d.analista}`;
                 if (!agrupado[key]) {
                     agrupado[key] = {
-                        analista: d.analista,
                         mes: d.mes,
+                        analista: d.analista,
                         ccs: new Set(),
                         facts: new Set(),
                         gln: 0,
@@ -477,14 +477,14 @@
                     const r = agrupado[k];
                     tbody.innerHTML += `
                         <tr>
-                            <td class="fw-semibold">${r.analista}</td>
                             <td>${r.mes}</td>
+                            <td class="fw-semibold">${r.analista}</td>
                             <td class="text-center fw-bold text-secondary">${r.ccs.size}</td>
                             <td class="text-center fw-bold text-primary">${r.facts.size}</td>
                             <td class="text-end">${r.gln.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} GLN</td>
+                            <td class="text-end fw-bold text-dark">$ ${r.total_desc.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                             <td class="text-end">$ ${r.desc_gln.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                             <td class="text-end">$ ${r.obsv.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                            <td class="text-end fw-bold text-dark">$ ${r.total_desc.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                         </tr>
                     `;
                 });
@@ -495,9 +495,9 @@
                 <tr>
                     <td colspan="4" class="text-uppercase">TOTAL FILTRADO</td>
                     <td class="text-end">${tGln.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} GLN</td>
+                    <td class="text-end text-danger fw-bold">$ ${tDescTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                     <td class="text-end">$ ${tDescGln.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                     <td class="text-end">$ ${tObsv.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                    <td class="text-end text-danger fw-bold">$ ${tDescTotal.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
                 </tr>
             `;
         }
