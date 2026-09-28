@@ -16,9 +16,16 @@
         .table-custom tbody tr:hover { background-color: #f1f3f5; }
         .table-custom tfoot tr { background-color: #e9ecef; font-weight: bold; border-top: 2px solid #212529; }
         .table-custom tfoot td { border: 1px solid #ced4da; }
-        .kpi-title { font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700; color: #6c757d; }
-        .kpi-value { font-size: 1.15rem; font-weight: 800; margin-top: 2px; }
-        .chart-container { position: relative; height: 300px; width: 100%; }
+        
+        /* Paleta de Colores por Analista */
+        .color-dickson { color: #198754 !important; } /* Verde para Dickson */
+        .color-fabian { color: #dc3545 !important; }  /* Rojo para Fabian */
+        .border-dickson { border-left: 5px solid #198754 !important; }
+        .border-fabian { border-left: 5px solid #dc3545 !important; }
+
+        .kpi-title { font-size: 0.70rem; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 700; color: #6c757d; }
+        .kpi-value { font-size: 1.10rem; font-weight: 800; margin-top: 2px; }
+        .chart-container { position: relative; height: 310px; width: 100%; }
         .filter-label { font-size: 0.85rem; font-weight: 700; color: #495057; margin-bottom: 4px; }
     </style>
 </head>
@@ -41,13 +48,13 @@
         <div class="card card-custom p-3 mb-4 bg-white">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="filter-label">📅 Mes Envío</label>
+                    <label class="filter-label">📅 Mes de envío</label>
                     <select id="filterMes" class="form-select form-select-sm" onchange="aplicarFiltros()">
                         <option value="TODOS">Todos los Meses</option>
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="filter-label">🏢 Centro de Costos / EDS</label>
+                    <label class="filter-label">🏢 Centro de Costos / EDS / CEN</label>
                     <select id="filterCC" class="form-select form-select-sm" onchange="aplicarFiltros()">
                         <option value="TODOS">Todos los Centros de Costos</option>
                     </select>
@@ -64,52 +71,53 @@
             </div>
         </div>
 
-        <!-- BLOQUE 1: TARJETAS DE KPIS COMPARATIVAS POR ANALISTA -->
+        <!-- BLOQUE 1: TARJETAS DE KPIS (Resumen Ejecutivo Superior) -->
         <div class="row g-3 mb-4">
-            <!-- DICKSON -->
+            <!-- DICKSON (VERDE) -->
             <div class="col-md-6">
-                <div class="card card-custom p-3 bg-white border-start border-4 border-primary">
-                    <h6 class="fw-bold text-primary mb-3">👤 Gestión: DICKSON</h6>
+                <div class="card card-custom p-3 bg-white border-dickson">
+                    <h6 class="fw-bold color-dickson mb-3">👤 Gestión: DICKSON</h6>
                     <div class="row text-center g-2">
-                        <div class="col-3">
-                            <div class="kpi-title">Volumen (GLN)</div>
-                            <div class="kpi-value text-primary" id="kpiD_gln">0.00</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Total Galones</div>
+                            <div class="kpi-value color-dickson" id="kpiD_gln">0.00</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Ahorros Totales ($)</div>
-                            <div class="kpi-value text-success" id="kpiD_desc">$ 0.00</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Total Descuentos Comerciales</div>
+                            <div class="kpi-value text-dark" id="kpiD_desc">$ 0.00</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Facturas Únicas</div>
-                            <div class="kpi-value text-dark" id="kpiD_fact">0</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Número de Registros</div>
+                            <div class="kpi-value text-secondary" id="kpiD_tx">0</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Centros Costo</div>
-                            <div class="kpi-value text-secondary" id="kpiD_cc">0</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Número de Estaciones Aliadas</div>
+                            <div class="kpi-value color-dickson" id="kpiD_cc">0</div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- FABIAN -->
+
+            <!-- FABIAN (ROJO) -->
             <div class="col-md-6">
-                <div class="card card-custom p-3 bg-white border-start border-4 border-danger">
-                    <h6 class="fw-bold text-danger mb-3">👤 Gestión: FABIAN</h6>
+                <div class="card card-custom p-3 bg-white border-fabian">
+                    <h6 class="fw-bold color-fabian mb-3">👤 Gestión: FABIÁN</h6>
                     <div class="row text-center g-2">
-                        <div class="col-3">
-                            <div class="kpi-title">Volumen (GLN)</div>
-                            <div class="kpi-value text-danger" id="kpiF_gln">0.00</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Total Galones</div>
+                            <div class="kpi-value color-fabian" id="kpiF_gln">0.00</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Ahorros Totales ($)</div>
-                            <div class="kpi-value text-success" id="kpiF_desc">$ 0.00</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Total Descuentos Comerciales</div>
+                            <div class="kpi-value text-dark" id="kpiF_desc">$ 0.00</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Facturas Únicas</div>
-                            <div class="kpi-value text-dark" id="kpiF_fact">0</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Número de Registros</div>
+                            <div class="kpi-value text-secondary" id="kpiF_tx">0</div>
                         </div>
-                        <div class="col-3">
-                            <div class="kpi-title">Centros Costo</div>
-                            <div class="kpi-value text-secondary" id="kpiF_cc">0</div>
+                        <div class="col-md-3 col-6">
+                            <div class="kpi-title">Número de Estaciones Aliadas</div>
+                            <div class="kpi-value color-fabian" id="kpiF_cc">0</div>
                         </div>
                     </div>
                 </div>
@@ -166,11 +174,11 @@
             </div>
         </div>
 
-        <!-- BLOQUE 2: GRÁFICOS DE COMPARACIÓN DIRECTA (5 Gráficos) -->
+        <!-- BLOQUE 2: GRÁFICOS DE COMPARACIÓN DIRECTA (Analista vs. Analista) -->
         <div class="row g-4 mb-4">
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">📊 Galonaje por Analista</h6>
+                    <h6 class="fw-bold text-secondary">📊 NÚMERO DE GALONES POR ANALISTA</h6>
                     <div class="chart-container">
                         <canvas id="chartVolumen"></canvas>
                     </div>
@@ -178,7 +186,7 @@
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">📈 Evolución Temporal de Compras</h6>
+                    <h6 class="fw-bold text-secondary">📈 NÚMERO DE GALONES POR PERIODO</h6>
                     <div class="chart-container">
                         <canvas id="chartEvolucion"></canvas>
                     </div>
@@ -186,7 +194,7 @@
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">💲 Eficiencia DCTO Promedio x Galón</h6>
+                    <h6 class="fw-bold text-secondary">💲 Eficiencia en Descuentos por Galón</h6>
                     <div class="chart-container">
                         <canvas id="chartEficiencia"></canvas>
                     </div>
@@ -194,7 +202,7 @@
             </div>
             <div class="col-md-6">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">🧾 Total Facturas Únicas por Analista</h6>
+                    <h6 class="fw-bold text-secondary">🧾 NUMERO DE FACTURAS POR ANALISTA</h6>
                     <div class="chart-container">
                         <canvas id="chartFacturas"></canvas>
                     </div>
@@ -202,9 +210,25 @@
             </div>
             <div class="col-md-6">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">🏢 Número de Centros de Costos por Analista</h6>
+                    <h6 class="fw-bold text-secondary">🏢 NUMERO DE ESTACIONES ALIADAS</h6>
                     <div class="chart-container">
                         <canvas id="chartCCAnalista"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-secondary">📝 NUMERO DE REGISTRO</h6>
+                    <div class="chart-container">
+                        <canvas id="chartRegistrosTotal"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-custom p-3 bg-white">
+                    <h6 class="fw-bold text-secondary">📊 NUMERO DE REGISTRO PROMEDIO</h6>
+                    <div class="chart-container">
+                        <canvas id="chartRegistrosPromedio"></canvas>
                     </div>
                 </div>
             </div>
@@ -214,7 +238,7 @@
         <div class="row g-4 mb-4">
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">⛽ Participación por Producto</h6>
+                    <h6 class="fw-bold text-secondary">⛽ Participación por Tipo de Producto</h6>
                     <div class="chart-container">
                         <canvas id="chartProductos"></canvas>
                     </div>
@@ -222,7 +246,7 @@
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">🏢 Top Centros de Costos / EDS (Galones)</h6>
+                    <h6 class="fw-bold text-secondary">🏢 Distribución por Centro de Costos / EDS</h6>
                     <div class="chart-container">
                         <canvas id="chartCentrosCosto"></canvas>
                     </div>
@@ -230,7 +254,7 @@
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">⭐ Descuento Promedio Ponderado x EDS ($/GLN)</h6>
+                    <h6 class="fw-bold text-secondary">⭐ Descuento Comercial Promedio por Centro de Costo (EDS)</h6>
                     <div class="chart-container">
                         <canvas id="chartDctoPonderadoEDS"></canvas>
                     </div>
@@ -243,8 +267,14 @@
     <script>
         const rawData = {{ raw_data_json | safe }};
 
+        // Instancias de Gráficos
         let chartVolumen, chartEvolucion, chartEficiencia, chartFacturas, chartCCAnalista;
+        let chartRegistrosTotal, chartRegistrosPromedio;
         let chartProductos, chartCentrosCosto, chartDctoPonderadoEDS;
+
+        // Paleta oficial de colores
+        const COLOR_DICKSON = '#198754'; // VERDE
+        const COLOR_FABIAN  = '#dc3545'; // ROJO
 
         function init() {
             poblarSelects();
@@ -291,77 +321,99 @@
         }
 
         function actualizarKPIs(datos) {
-            let dickson = { gln: 0, desc: 0, facts: new Set(), ccs: new Set() };
-            let fabian = { gln: 0, desc: 0, facts: new Set(), ccs: new Set() };
+            let dickson = { gln: 0, desc: 0, tx: 0, ccs: new Set() };
+            let fabian = { gln: 0, desc: 0, tx: 0, ccs: new Set() };
 
             datos.forEach(d => {
                 if (d.analista.includes("DICKSON")) {
                     dickson.gln += d.gln;
                     dickson.desc += d.total_desc;
-                    if (d.factura && d.factura !== "None") dickson.facts.add(d.factura);
-                    if (d.cc) dickson.ccs.add(d.cc);
+                    dickson.tx += 1;
+                    if (d.cc && d.cc !== "SIN CC/EDS") dickson.ccs.add(d.cc);
                 } else if (d.analista.includes("FABIAN") || d.analista.includes("FABIÁN")) {
                     fabian.gln += d.gln;
                     fabian.desc += d.total_desc;
-                    if (d.factura && d.factura !== "None") fabian.facts.add(d.factura);
-                    if (d.cc) fabian.ccs.add(d.cc);
+                    fabian.tx += 1;
+                    if (d.cc && d.cc !== "SIN CC/EDS") fabian.ccs.add(d.cc);
                 }
             });
 
             document.getElementById("kpiD_gln").innerText = dickson.gln.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " GLN";
             document.getElementById("kpiD_desc").innerText = "$ " + dickson.desc.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById("kpiD_fact").innerText = dickson.facts.size.toLocaleString();
+            document.getElementById("kpiD_tx").innerText = dickson.tx.toLocaleString();
             document.getElementById("kpiD_cc").innerText = dickson.ccs.size.toLocaleString();
 
             document.getElementById("kpiF_gln").innerText = fabian.gln.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " GLN";
             document.getElementById("kpiF_desc").innerText = "$ " + fabian.desc.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById("kpiF_fact").innerText = fabian.facts.size.toLocaleString();
+            document.getElementById("kpiF_tx").innerText = fabian.tx.toLocaleString();
             document.getElementById("kpiF_cc").innerText = fabian.ccs.size.toLocaleString();
         }
 
         function crearGraficosVacios() {
+            // 1. Número de Galones por Analista
             chartVolumen = new Chart(document.getElementById('chartVolumen'), {
                 type: 'bar',
-                data: { labels: ['DICKSON', 'FABIAN'], datasets: [{ label: 'Galones', data: [0, 0], backgroundColor: ['#0d6efd', '#dc3545'] }] },
+                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Galones', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 2. Número de Galones por Periodo
             chartEvolucion = new Chart(document.getElementById('chartEvolucion'), {
                 type: 'line',
                 data: { labels: [], datasets: [] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 3. Eficiencia en Descuentos por Galón
             chartEficiencia = new Chart(document.getElementById('chartEficiencia'), {
                 type: 'bar',
-                data: { labels: ['DICKSON', 'FABIAN'], datasets: [{ label: 'Dcto Prom x Galón ($)', data: [0, 0], backgroundColor: ['#198754', '#ffc107'] }] },
+                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Dcto Prom x Galón ($)', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 4. Número de Facturas por Analista (Donut para destacar volumen deduplicado)
             chartFacturas = new Chart(document.getElementById('chartFacturas'), {
-                type: 'bar',
-                data: { labels: ['DICKSON', 'FABIAN'], datasets: [{ label: 'Facturas Únicas', data: [0, 0], backgroundColor: ['#0d6efd', '#dc3545'] }] },
+                type: 'doughnut',
+                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 5. Número de Estaciones Aliadas (Barras Horizontales)
             chartCCAnalista = new Chart(document.getElementById('chartCCAnalista'), {
                 type: 'bar',
-                data: { labels: ['DICKSON', 'FABIAN'], datasets: [{ label: 'Centros de Costo', data: [0, 0], backgroundColor: ['#6c757d', '#0dcaf0'] }] },
+                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Estaciones Aliadas', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            });
+
+            // 6. Número de Registro
+            chartRegistrosTotal = new Chart(document.getElementById('chartRegistrosTotal'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 7. Número de Registro Promedio
+            chartRegistrosPromedio = new Chart(document.getElementById('chartRegistrosPromedio'), {
+                type: 'bar',
+                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Líneas/Transacciones Prom. Mensual', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 8. Participación por Tipo de Producto
             chartProductos = new Chart(document.getElementById('chartProductos'), {
-                type: 'doughnut',
-                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#0d6efd', '#6c757d', '#198754', '#ffc107', '#0dcaf0'] }] },
+                type: 'pie',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6c757d'] }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // 9. Distribución por Centro de Costos / EDS
             chartCentrosCosto = new Chart(document.getElementById('chartCentrosCosto'), {
                 type: 'bar',
                 data: { labels: [], datasets: [{ label: 'Galones', data: [], backgroundColor: '#0d6efd' }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
             });
 
+            // 10. Descuento Comercial Promedio por Centro de Costo (EDS)
             chartDctoPonderadoEDS = new Chart(document.getElementById('chartDctoPonderadoEDS'), {
                 type: 'bar',
                 data: { labels: [], datasets: [{ label: 'Dcto Ponderado ($/GLN)', data: [], backgroundColor: '#198754' }] },
@@ -370,65 +422,86 @@
         }
 
         function actualizarGraficos(datos) {
-            // 1. Datos Generales por Analista
-            let gD = 0, gF = 0, dD = 0, dF = 0;
+            let gD = 0, gF = 0, dD = 0, dF = 0, txD = 0, txF = 0;
             let fD = new Set(), fF = new Set();
             let cD = new Set(), cF = new Set();
 
             datos.forEach(d => {
                 if (d.analista.includes("DICKSON")) {
-                    gD += d.gln; dD += d.total_desc;
-                    if (d.factura && d.factura !== "None") fD.add(d.factura);
-                    if (d.cc) cD.add(d.cc);
+                    gD += d.gln; dD += d.total_desc; txD += 1;
+                    if (d.factura && d.factura !== "None" && d.factura !== "nan") fD.add(d.factura);
+                    if (d.cc && d.cc !== "SIN CC/EDS") cD.add(d.cc);
                 } else if (d.analista.includes("FABIAN") || d.analista.includes("FABIÁN")) {
-                    gF += d.gln; dF += d.total_desc;
-                    if (d.factura && d.factura !== "None") fF.add(d.factura);
-                    if (d.cc) cF.add(d.cc);
+                    gF += d.gln; dF += d.total_desc; txF += 1;
+                    if (d.factura && d.factura !== "None" && d.factura !== "nan") fF.add(d.factura);
+                    if (d.cc && d.cc !== "SIN CC/EDS") cF.add(d.cc);
                 }
             });
 
-            // Actualizar Volumen
+            // 1. Volumen
             chartVolumen.data.datasets[0].data = [gD, gF];
             chartVolumen.update();
 
-            // Actualizar Eficiencia
+            // 3. Eficiencia
             const efD = gD > 0 ? (dD / gD) : 0;
             const efF = gF > 0 ? (dF / gF) : 0;
             chartEficiencia.data.datasets[0].data = [efD, efF];
             chartEficiencia.update();
 
-            // Actualizar Facturas
+            // 4. Facturas
             chartFacturas.data.datasets[0].data = [fD.size, fF.size];
             chartFacturas.update();
 
-            // Actualizar Centros de Costo por Analista
+            // 5. Estaciones Aliadas
             chartCCAnalista.data.datasets[0].data = [cD.size, cF.size];
             chartCCAnalista.update();
 
-            // 2. Evolución Temporal
+            // 2. Evolución Temporal de Galones
             const meses = [...new Set(datos.map(d => d.mes))].sort();
-            let evoD = {}, evoF = {};
-            meses.forEach(m => { evoD[m] = 0; evoF[m] = 0; });
+            let evoD = {}, evoF = {}, regD = {}, regF = {};
+            meses.forEach(m => { evoD[m] = 0; evoF[m] = 0; regD[m] = 0; regF[m] = 0; });
             datos.forEach(d => {
-                if (d.analista.includes("DICKSON")) evoD[d.mes] = (evoD[d.mes] || 0) + d.gln;
-                else if (d.analista.includes("FABIAN") || d.analista.includes("FABIÁN")) evoF[d.mes] = (evoF[d.mes] || 0) + d.gln;
+                if (d.analista.includes("DICKSON")) {
+                    evoD[d.mes] = (evoD[d.mes] || 0) + d.gln;
+                    regD[d.mes] = (regD[d.mes] || 0) + 1;
+                } else if (d.analista.includes("FABIAN") || d.analista.includes("FABIÁN")) {
+                    evoF[d.mes] = (evoF[d.mes] || 0) + d.gln;
+                    regF[d.mes] = (regF[d.mes] || 0) + 1;
+                }
             });
 
             chartEvolucion.data.labels = meses;
             chartEvolucion.data.datasets = [
-                { label: 'DICKSON', data: meses.map(m => evoD[m]), borderColor: '#0d6efd', fill: false },
-                { label: 'FABIAN', data: meses.map(m => evoF[m]), borderColor: '#dc3545', fill: false }
+                { label: 'DICKSON', data: meses.map(m => evoD[m]), borderColor: COLOR_DICKSON, backgroundColor: COLOR_DICKSON, fill: false },
+                { label: 'FABIÁN', data: meses.map(m => evoF[m]), borderColor: COLOR_FABIAN, backgroundColor: COLOR_FABIAN, fill: false }
             ];
             chartEvolucion.update();
 
-            // 3. Productos
+            // 6. Número de Registro por Mes
+            chartRegistrosTotal.data.labels = meses;
+            chartRegistrosTotal.data.datasets = [
+                { label: 'DICKSON', data: meses.map(m => regD[m]), backgroundColor: COLOR_DICKSON },
+                { label: 'FABIÁN', data: meses.map(m => regF[m]), backgroundColor: COLOR_FABIAN }
+            ];
+            chartRegistrosTotal.update();
+
+            // 7. Número de Registro Promedio
+            const numMesesD = Object.keys(regD).filter(m => regD[m] > 0).length || 1;
+            const numMesesF = Object.keys(regF).filter(m => regF[m] > 0).length || 1;
+            const promD = txD / numMesesD;
+            const promF = txF / numMesesF;
+
+            chartRegistrosPromedio.data.datasets[0].data = [promD, promF];
+            chartRegistrosPromedio.update();
+
+            // 8. Productos
             let prods = {};
             datos.forEach(d => { prods[d.producto] = (prods[d.producto] || 0) + d.gln; });
             chartProductos.data.labels = Object.keys(prods);
             chartProductos.data.datasets[0].data = Object.values(prods);
             chartProductos.update();
 
-            // 4. Centros de Costos Top 10 (Galones)
+            // 9. Centros de Costos / EDS Top 10
             let ccs = {};
             datos.forEach(d => { ccs[d.cc] = (ccs[d.cc] || 0) + d.gln; });
             const sortedCC = Object.entries(ccs).sort((a,b) => b[1] - a[1]).slice(0, 10);
@@ -436,7 +509,7 @@
             chartCentrosCosto.data.datasets[0].data = sortedCC.map(x => x[1]);
             chartCentrosCosto.update();
 
-            // 5. Descuento Promedio Ponderado x EDS ($/GLN)
+            // 10. Descuento Promedio Ponderado por Centro de Costo (EDS)
             let edsMetrics = {};
             datos.forEach(d => {
                 if (!edsMetrics[d.cc]) edsMetrics[d.cc] = { gln: 0, desc: 0 };
