@@ -237,7 +237,7 @@
 
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
-                    <h6 class="fw-bold text-secondary">⛽ NUMERO DE REGISTRO PROMEDIO POR GALONES</h6>
+                    <h6 class="fw-bold text-secondary">⛽ VOLUMEN PROMEDIO POR LÍNEA REGISTRADA</h6>
                     <div class="chart-container">
                         <canvas id="chartRegPromGalones"></canvas>
                     </div>
@@ -610,7 +610,14 @@
 
             chartRegPromGalones = new Chart(document.getElementById('chartRegPromGalones'), {
                 type: 'bar',
-                data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Galones Promedio por Registro', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] }] },
+                data: { 
+                    labels: ['DICKSON', 'FABIÁN'], 
+                    datasets: [{ 
+                        label: 'Volumen Promedio por Línea (GLN)', 
+                        data: [0, 0], 
+                        backgroundColor: [COLOR_DICKSON, COLOR_FABIAN] 
+                    }] 
+                },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
 
@@ -717,12 +724,12 @@
             chartRegistrosPromedio.update();
             document.getElementById("insightRegistrosPromedio").innerHTML = `💡 <strong>Análisis:</strong> Ítems por factura: DICKSON <strong>${regPromFactD.toFixed(1)}</strong> vs FABIÁN <strong>${regPromFactF.toFixed(1)}</strong>.`;
 
-            // 8. Galones Promedio por Registro
+            // 8. Volumen Promedio por Línea Registrada
             let glnRegD = txDickson > 0 ? (glnDickson / txDickson) : 0;
             let glnRegF = txFabian > 0 ? (glnFabian / txFabian) : 0;
             chartRegPromGalones.data.datasets[0].data = [glnRegD, glnRegF];
             chartRegPromGalones.update();
-            document.getElementById("insightRegPromGalones").innerHTML = `💡 <strong>Análisis:</strong> Galones por línea: DICKSON <strong>${glnRegD.toFixed(1)}</strong> vs FABIÁN <strong>${glnRegF.toFixed(1)}</strong>.`;
+            document.getElementById("insightRegPromGalones").innerHTML = `💡 <strong>Análisis:</strong> Volumen por línea: DICKSON <strong>${glnRegD.toFixed(1)} GLN</strong> vs FABIÁN <strong>${glnRegF.toFixed(1)} GLN</strong>.`;
 
             // 9. PRODUCTOS (GRÁFICA + TABLA DE 2 COLUMNAS SINCRONIZADA)
             let prods = {};
