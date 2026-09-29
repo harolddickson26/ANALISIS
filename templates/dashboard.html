@@ -784,25 +784,35 @@
             chartCentrosCosto.update();
             document.getElementById("insightCentrosCosto").innerHTML = `💡 <strong>Análisis:</strong> EDS principal: <strong>${sortedCCs[0] || 'N/A'}</strong>.`;
 
-            // 11. Descuento Ponderado EDS (Top 10)
+            // 11. Descuento Comercial Promedio Ponderado por EDS (Top 10)
             let ccsDcto = {};
             datos.forEach(d => {
-                if (!ccsDcto[d.cc]) ccsDcto[d.cc] = { gln: 0, desc: 0 };
-                ccsDcto[d.cc].gln += d.gln;
-                ccsDcto[d.cc].desc += d.total_desc;
+                if (!ccsDcto[d.cc]) ccsDcto[d.cc] = { totalDesc: 0, totalGln: 0 };
+                ccsDcto[d.cc].totalDesc += d.desc; // Suma de DESC X GALON ($) en el centro de costo
+                ccsDcto[d.cc].totalGln += d.gln;   // Suma de CANT GLN en el centro de costo
             });
+
+            // Ordenar de mayor a menor por la relación (Suma Descuento / Suma Galones)
             let sortedDctoCCs = Object.keys(ccsDcto).sort((a,b) => {
-                let promB = ccsDcto[b].gln > 0 ? (ccsDcto[b].desc / ccsDcto[b].gln) : 0;
-                let promA = ccsDcto[a].gln > 0 ? (ccsDcto[a].desc / ccsDcto[a].gln) : 0;
+                let promB = ccsDcto[b].totalGln > 0 ? (ccsDcto[b].totalDesc / ccsDcto[b].totalGln) : 0;
+                let promA = ccsDcto[a].totalGln > 0 ? (ccsDcto[a].totalDesc / ccsDcto[a].totalGln) : 0;
                 return promB - promA;
             }).slice(0, 10);
 
-            let dataDctoCCs = sortedDctoCCs.map(c => ccsDcto[c].gln > 0 ? (ccsDcto[c].desc / ccsDcto[c].gln) : 0);
+            // Mapear los valores ponderados ($ / GLN) para el gráfico
+            let dataDctoCCs = sortedDctoCCs.map(c => 
+                ccsDcto[c].totalGln > 0 ? (ccsDcto[c].totalDesc / ccsDcto[c].totalGln) : 0
+            );
 
+            // Actualizar gráfico Chart.js
             chartDctoPonderadoEDS.data.labels = sortedDctoCCs;
             chartDctoPonderadoEDS.data.datasets[0].data = dataDctoCCs;
             chartDctoPonderadoEDS.update();
-            document.getElementById("insightDctoPonderadoEDS").innerHTML = `💡 <strong>Análisis:</strong> Mayor descuento/GLN en <strong>${sortedDctoCCs[0] || 'N/A'}</strong>.`;
+
+            // Actualizar conclusión dinámica
+            const topEDS = sortedDctoCCs[0] || 'N/A';
+            const topEDSV = dataDctoCCs[0] ? dataDctoCCs[0].toFixed(2) : '0.00';
+            document.getElementById("insightDctoPonderadoEDS").innerHTML = `💡 <strong>Análisis:</strong> Mayor descuento ponderado en <strong>${topEDS}</strong> ($${topEDSV}/GLN).`;
         }
 
         function exportarHTML() {
