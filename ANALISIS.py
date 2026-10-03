@@ -3,6 +3,7 @@ import gc
 import json
 import duckdb
 import pandas as pd
+import numpy as np
 from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
@@ -76,6 +77,67 @@ def dashboard():
         return redirect(url_for("cargar_excel"))
 
     return procesar_y_renderizar_dashboard(ULTIMO_ARCHIVO['file_path'], ULTIMO_ARCHIVO['filename'])
+
+
+# --- NUEVA FUNCIÓN PARA LA TABLA DE CENTROS DE COSTOS ---
+def generar_tabla_centros_costos(df_raw, col_cc_real, col_cat1_real, col_fecha_real, col_gln_real):
+    df = df_raw.copy()
+    df['CENTRO DE COSTOS NUM'] = pd.to_numeric(df[col_cc_real], errors='coerce')
+    df['MES_STR'] = pd.to_datetime(df[col_fecha_real], errors='coerce').dt.strftime('%Y-%m')
+    
+    # Obtener el analista predominante por centro de costos
+    analyst_mapping = df.groupby('CENTRO DE COSTOS NUM')[col_cat1_real].agg(
+        lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0]
+    ).reset_index()
+    analyst_mapping.columns = ['CENTRO DE COSTOS NUM', 'ANALISTA']
+    
+    pivot_df = pd.pivot_table(
+        df,
+        index='CENTRO DE COSTOS NUM',
+        columns='MES_STR',
+        values=col_gln_real,
+        aggfunc='sum',
+        fill_value=0
+    ).sort_index()
+    
+    months = sorted([str(m) for m in pivot_df.columns.tolist() if pd.notna(m)])
+    combined_df = pd.DataFrame(index=pivot_df.index)
+    
+    prev_col = None
+    for i, col in enumerate(months):
+        if i == 0:
+            combined_df[col] = pivot_df[col].apply(lambda x: f"{x:,.2f}")
+        else:
+            old_val = pivot_df[prev_col]
+            new_val = pivot_df[col]
+            pct_change = np.where(
+                old_val == 0,
+                np.where(new_val == 0, 0.0, 100.0),
+                ((new_val - old_val) / old_val) * 100
+            )
+            
+            cell_contents = []
+            for val, p, o, n in zip(new_val, pct_change, old_val, new_val):
+                val_str = f"{val:,.2f}"
+                if o == 0 and n == 0:
+                    cell_contents.append(f"{val_str} (0.0% ➖)")
+                elif p > 0:
+                    cell_contents.append(f"{val_str} (+{p:.1f}% 🟢)")
+                elif p < 0:
+                    cell_contents.append(f"{val_str} ({p:.1f}% 🔴)")
+                else:
+                    cell_contents.append(f"{val_str} (0.0% ➖)")
+            combined_df[col] = cell_contents
+        prev_col = col
+
+    combined_df['TOTAL GENERAL'] = pivot_df.sum(axis=1).apply(lambda x: f"{x:,.2f}")
+    combined_df = combined_df.reset_index()
+    combined_df = pd.merge(combined_df, analyst_mapping, on='CENTRO DE COSTOS NUM', how='left')
+    
+    cols = ['CENTRO DE COSTOS NUM', 'ANALISTA'] + [c for c in combined_df.columns if c not in ['CENTRO DE COSTOS NUM', 'ANALISTA']]
+    final_df = combined_df[cols]
+    
+    return final_df.to_dict(orient='records'), final_df.columns.tolist()
 
 
 def procesar_y_renderizar_dashboard(file_path, filename):
@@ -160,7 +222,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Principal Estática (Mes Envío 1°, Total Descuentos 6°)
+    # 2. Tabla Resumen Principal Estática
     q_tabla = f"""
         SELECT 
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
@@ -179,6 +241,12 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         resumen_tabla = con.execute(q_tabla).fetchall()
     except Exception:
         resumen_tabla = []
+
+    # Generar los datos para la nueva tabla de Centros de Costos
+    try:
+        cc_tabla_registros, cc_columnas = generar_tabla_centros_costos(df, col_cc_real, col_cat1_real, col_fecha_real, col_gln_real)
+    except Exception:
+        cc_tabla_registros, cc_columnas = [], []
 
     # 3. Registros para Filtros Dinámicos
     q_raw_data = f"""
@@ -220,7 +288,9 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         kpis=kpis,
         registros=resumen_tabla,
         filename=filename,
-        raw_data_json=json.dumps(raw_data)
+        raw_data_json=json.dumps(raw_data),
+        cc_tabla_registros=cc_tabla_registros,
+        cc_columnas=cc_columnas
     )
 
 if __name__ == "__main__":
