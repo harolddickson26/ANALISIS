@@ -440,13 +440,6 @@
         const COLOR_FABIAN  = '#F43F5E';
         const PALETA_NEUTRA = ['#0F172A', '#3B82F6', '#64748B', '#0EA5E9', '#6366F1', '#F59E0B', '#10B981', '#EC4899'];
         
-        // Objeto mapa para formatear YYYY-MM a "NombreMes Año"
-        const NOMBRES_MESES = {
-            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abryl",
-            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
-            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
-        };
-
         function formatearFechaTexto(val) {
             if (!val || typeof val !== 'string') return val;
             const partes = val.split('-');
@@ -480,6 +473,7 @@
             const ccs = [...new Set(rawData.map(d => d.cc))].filter(Boolean).sort();
             const prods = [...new Set(rawData.map(d => d.producto))].filter(Boolean).sort();
             
+            // Limpieza previa (innerHTML) para evitar duplicados en la lista
             const selMes = document.getElementById("filterMes");
             selMes.innerHTML = '<option value="TODOS">Todos los Meses</option>';
             mesesUnicos.forEach(m => {
