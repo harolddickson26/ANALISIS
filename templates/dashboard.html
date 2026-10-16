@@ -16,13 +16,11 @@
             --text-muted: #64748B;
             --border-subtle: #E2E8F0;
         }
-
         body { 
             background-color: var(--bg-dashboard); 
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             color: var(--text-main);
         }
-
         /* --- CONTENEDORES Y TARJETAS PREMIUM --- */
         .card-custom { 
             border: 1px solid var(--border-subtle); 
@@ -34,7 +32,6 @@
         .card-custom:hover {
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.07), 0 8px 10px -6px rgba(0,0,0,0.04);
         }
-
         /* --- TABLAS PERSONALIZADAS --- */
         .table-custom { width: 100%; margin-bottom: 0; border-collapse: separate; border-spacing: 0; }
         .table-custom th { background-color: #0F172A; color: #ffffff; font-weight: 600; padding: 14px 16px; border: none; font-size: 0.85rem; letter-spacing: 0.03em; }
@@ -69,7 +66,6 @@
             border-bottom: 1px solid #F1F5F9;
         }
         .insight-box strong { color: #0F172A; }
-
         header {
             background: var(--card-bg);
             border-radius: 14px;
@@ -196,12 +192,8 @@
                             <th class="text-end">Suma OBSERVACION ($)</th>
                         </tr>
                     </thead>
-                    <tbody id="tbodyDinamico">
-                        <!-- Generado dinámicamente -->
-                    </tbody>
-                    <tfoot id="tfootDinamico">
-                        <!-- Generado dinámicamente -->
-                    </tfoot>
+                    <tbody id="tbodyDinamico"></tbody>
+                    <tfoot id="tfootDinamico"></tfoot>
                 </table>
             </div>
         </div>
@@ -239,77 +231,94 @@
             </div>
         </div>
 
+        <!-- TABLA TRANSPUESTA: MESES HORIZONTALES Y AMBOS ANALISTAS VERTICALES -->
+        <div class="card card-custom p-4 mb-4 bg-white">
+            <h5 class="fw-bold mb-3 text-dark">📋 Resumen General Estático (Meses con ambos Analistas)</h5>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>Analista</th>
+                            {% for mes in meses_columnas %}
+                                <th class="text-end">{{ mes }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in resumen_por_mes %}
+                        <tr>
+                            <td class="fw-semibold text-secondary">{{ row['METRICA'] }}</td>
+                            <td class="fw-bold text-dark">{{ row['ANALISTA'] }}</td>
+                            {% for mes in meses_columnas %}
+                                <td class="text-end">{{ row[mes] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ meses_columnas | length + 2 }}" class="text-center text-muted">No se encontraron registros en el resumen transpuesto.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- BLOQUE 2: GRÁFICOS DE COMPARACIÓN DIRECTA -->
         <div class="row g-4 mb-4">
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">📊 NÚMERO DE GALONES POR ANALISTA</h6>
-                    <div class="chart-container">
-                        <canvas id="chartVolumen"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartVolumen"></canvas></div>
                     <div class="insight-box" id="insightVolumen">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">📈 NÚMERO DE GALONES POR PERÍODO</h6>
-                    <div class="chart-container">
-                        <canvas id="chartEvolucion"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartEvolucion"></canvas></div>
                     <div class="insight-box" id="insightEvolucion">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">💲 Eficiencia en Descuentos por Galón</h6>
-                    <div class="chart-container">
-                        <canvas id="chartEficiencia"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartEficiencia"></canvas></div>
                     <div class="insight-box" id="insightEficiencia">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">🧾 NÚMERO DE FACTURAS POR ANALISTA</h6>
-                    <div class="chart-container">
-                        <canvas id="chartFacturas"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartFacturas"></canvas></div>
                     <div class="insight-box" id="insightFacturas">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">🏢 NÚMERO DE ESTACIONES ALIADAS</h6>
-                    <div class="chart-container">
-                        <canvas id="chartCCAnalista"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartCCAnalista"></canvas></div>
                     <div class="insight-box" id="insightCCAnalista">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">📊 TOTAL DE LÍNEAS REGISTRADAS</h6>
-                    <div class="chart-container">
-                        <canvas id="chartRegistrosTotal"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartRegistrosTotal"></canvas></div>
                     <div class="insight-box" id="insightRegistrosTotal">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">📊 REGISTRO PROMEDIO POR FACTURA</h6>
-                    <div class="chart-container">
-                        <canvas id="chartRegistrosPromedio"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartRegistrosPromedio"></canvas></div>
                     <div class="insight-box" id="insightRegistrosPromedio">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">⛽ GALONES PROMEDIO POR LÍNEA</h6>
-                    <div class="chart-container">
-                        <canvas id="chartRegPromGalones"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartRegPromGalones"></canvas></div>
                     <div class="insight-box" id="insightRegPromGalones">Cargando análisis...</div>
                 </div>
             </div>
@@ -335,9 +344,7 @@
                                             <th class="text-end">%</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="tbodyTablaProductos" class="small">
-                                        <!-- Se llena dinámicamente -->
-                                    </tbody>
+                                    <tbody id="tbodyTablaProductos" class="small"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -348,70 +355,16 @@
             <div class="col-md-3">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">🏢 DISTRIBUCIÓN POR CENTRO DE COSTOS</h6>
-                    <div class="chart-container">
-                        <canvas id="chartCentrosCosto"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartCentrosCosto"></canvas></div>
                     <div class="insight-box" id="insightCentrosCosto">Cargando análisis...</div>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card card-custom p-3 bg-white">
                     <h6 class="fw-bold text-dark mb-3">⭐ Dcto Comercial Promedio (EDS)</h6>
-                    <div class="chart-container">
-                        <canvas id="chartDctoPonderadoEDS"></canvas>
-                    </div>
+                    <div class="chart-container"><canvas id="chartDctoPonderadoEDS"></canvas></div>
                     <div class="insight-box" id="insightDctoPonderadoEDS">Cargando análisis...</div>
                 </div>
-            </div>
-        </div>
-
-        <!-- BLOQUE DE TABLA GENERAL ESTÁTICA -->
-        <div class="card card-custom p-4 mb-4 bg-white">
-            <h5 class="fw-bold mb-3 text-dark">📋 Resumen General Estático (Consolidado de Archivo)</h5>
-            <div class="table-responsive">
-                <table class="table-custom">
-                    <thead>
-                        <tr>
-                            <th>Mes Envío</th>
-                            <th>Analista</th>
-                            <th class="text-center">Centro de Costos</th>
-                            <th class="text-center">Número de Facturas</th>
-                            <th class="text-end">Total Galones</th>
-                            <th class="text-end">Total Descuentos ($)</th>
-                            <th class="text-end">Suma DESC X GALON ($)</th>
-                            <th class="text-end">Suma OBSERVACION ($)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for reg in registros %}
-                        <tr>
-                            <td>{{ reg[0] if reg[0] else 'N/A' }}</td>
-                            <td class="fw-semibold">{{ reg[1] if reg[1] else 'N/A' }}</td>
-                            <td class="text-center fw-bold text-secondary">{{ reg[2] if reg[2] is not none else '0' }}</td>
-                            <td class="text-center fw-bold text-primary">{{ reg[3] if reg[3] is not none else '0' }}</td>
-                            <td class="text-end">{{ "{:,.2f}".format(reg[4]) if reg[4] is not none else '0.00' }} GLN</td>
-                            <td class="text-end fw-bold text-dark">$ {{ "{:,.2f}".format(reg[5]) if reg[5] is not none else '0.00' }}</td>
-                            <td class="text-end">$ {{ "{:,.2f}".format(reg[6]) if reg[6] is not none else '0.00' }}</td>
-                            <td class="text-end">$ {{ "{:,.2f}".format(reg[7]) if reg[7] is not none else '0.00' }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" class="text-center text-muted">No se encontraron registros.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    {% if registros %}
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" class="text-uppercase">TOTAL GENERAL EXCEL</td>
-                            <td class="text-end">{{ kpis.total_gln }} GLN</td>
-                            <td class="text-end text-danger fw-bold">$ {{ kpis.gran_total_desc }}</td>
-                            <td class="text-end">$ {{ kpis.total_desc_galon }}</td>
-                            <td class="text-end">$ {{ kpis.total_obsv }}</td>
-                        </tr>
-                    </tfoot>
-                    {% endif %}
-                </table>
             </div>
         </div>
 
@@ -440,20 +393,17 @@
         const COLOR_FABIAN  = '#F43F5E';
         const PALETA_NEUTRA = ['#0F172A', '#3B82F6', '#64748B', '#0EA5E9', '#6366F1', '#F59E0B', '#10B981', '#EC4899'];
         
+        const NOMBRES_MESES = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        };
+
         function formatearFechaTexto(val) {
             if (!val || typeof val !== 'string') return val;
             const partes = val.split('-');
-            if (partes.length >= 2) {
-                const ano = partes[0];
-                let mesNum = partes[1];
-                const mesTextos = {
-                    "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
-                    "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
-                    "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
-                };
-                if (mesTextos[mesNum]) {
-                    return `${mesTextos[mesNum]} ${ano}`;
-                }
+            if (partes.length >= 2 && NOMBRES_MESES[partes[1]]) {
+                return `${NOMBRES_MESES[partes[1]]} ${partes[0]}`;
             }
             return val;
         }
@@ -473,12 +423,10 @@
             const ccs = [...new Set(rawData.map(d => d.cc))].filter(Boolean).sort();
             const prods = [...new Set(rawData.map(d => d.producto))].filter(Boolean).sort();
             
-            // Limpieza previa (innerHTML) para evitar duplicados en la lista
             const selMes = document.getElementById("filterMes");
             selMes.innerHTML = '<option value="TODOS">Todos los Meses</option>';
             mesesUnicos.forEach(m => {
-                const textoLegible = formatearFechaTexto(m);
-                selMes.add(new Option(textoLegible, m));
+                selMes.add(new Option(formatearFechaTexto(m), m));
             });
             
             const selCC = document.getElementById("filterCC");
@@ -635,26 +583,22 @@
                     });
                 }
             };
-
             chartVolumen = new Chart(document.getElementById('chartVolumen'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Galones', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } },
                 plugins: [pluginPorcentajeBar]
             });
-
             chartEvolucion = new Chart(document.getElementById('chartEvolucion'), {
                 type: 'line',
                 data: { labels: [], datasets: [] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartEficiencia = new Chart(document.getElementById('chartEficiencia'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Dcto Prom x Galón ($)', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartFacturas = new Chart(document.getElementById('chartFacturas'), {
                 type: 'doughnut',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderWidth: 0 }] },
@@ -673,31 +617,26 @@
                     }
                 }
             });
-
             chartCCAnalista = new Chart(document.getElementById('chartCCAnalista'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Estaciones Aliadas', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartRegistrosTotal = new Chart(document.getElementById('chartRegistrosTotal'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Registros Totales', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartRegistrosPromedio = new Chart(document.getElementById('chartRegistrosPromedio'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Registros Promedio por Factura', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartRegPromGalones = new Chart(document.getElementById('chartRegPromGalones'), {
                 type: 'bar',
                 data: { labels: ['DICKSON', 'FABIÁN'], datasets: [{ label: 'Galones Promedio por Línea (GLN)', data: [0, 0], backgroundColor: [COLOR_DICKSON, COLOR_FABIAN], borderRadius: 6 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartProductos = new Chart(document.getElementById('chartProductos'), {
                 type: 'pie',
                 data: { labels: [], datasets: [{ data: [], backgroundColor: PALETA_NEUTRA, borderWidth: 0 }] },
@@ -716,20 +655,17 @@
                     }
                 }
             });
-
             chartCentrosCosto = new Chart(document.getElementById('chartCentrosCosto'), {
                 type: 'bar',
                 data: { labels: [], datasets: [{ label: 'Galones', data: [], backgroundColor: '#3B82F6', borderRadius: 6 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
-
             chartDctoPonderadoEDS = new Chart(document.getElementById('chartDctoPonderadoEDS'), {
                 type: 'bar',
                 data: { labels: [], datasets: [{ label: 'Dcto Ponderado ($/GLN)', data: [], backgroundColor: '#64748B', borderRadius: 6 }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
         }
-
         function actualizarGraficos(datos) {
             let glnDickson = 0, glnFabian = 0;
             let descDickson = 0, descFabian = 0;
@@ -878,7 +814,6 @@
             const topEDSV = dataDctoCCs[0] ? dataDctoCCs[0].toFixed(2) : '0.00';
             document.getElementById("insightDctoPonderadoEDS").innerHTML = `💡 <strong>Análisis:</strong> Mayor dcto ponderado en <strong>${topEDS}</strong> ($${topEDSV}/GLN).`;
         }
-
         function exportarHTML() {
             const contenido = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
             const blob = new Blob([contenido], { type: "text/html;charset=utf-8" });
