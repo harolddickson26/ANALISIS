@@ -17,6 +17,21 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ULTIMO_ARCHIVO = {}
 
+# Diccionario para formatear los meses en palabras (Español)
+MESES_ES = {
+    "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+    "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+    "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+}
+
+def formatear_mes_texto(val):
+    if not val or not isinstance(val, str):
+        return val
+    partes = val.split('-')
+    if len(partes) >= 2 and partes[1] in MESES_ES:
+        return f"{MESES_ES[partes[1]]} {partes[0]}"
+    return val
+
 @app.route("/")
 def inicio():
     if session.get("usuario"):
@@ -79,13 +94,12 @@ def dashboard():
     return procesar_y_renderizar_dashboard(ULTIMO_ARCHIVO['file_path'], ULTIMO_ARCHIVO['filename'])
 
 
-# --- NUEVA FUNCIÓN PARA LA TABLA DE CENTROS DE COSTOS ---
+# --- FUNCIÓN PARA LA TABLA DE CENTROS DE COSTOS ---
 def generar_tabla_centros_costos(df_raw, col_cc_real, col_cat1_real, col_fecha_real, col_gln_real):
     df = df_raw.copy()
     df['CENTRO DE COSTOS NUM'] = pd.to_numeric(df[col_cc_real], errors='coerce')
     df['MES_STR'] = pd.to_datetime(df[col_fecha_real], errors='coerce').dt.strftime('%Y-%m')
     
-    # Obtener el analista predominante por centro de costos
     analyst_mapping = df.groupby('CENTRO DE COSTOS NUM')[col_cat1_real].agg(
         lambda x: x.mode()[0] if not x.mode().empty else x.iloc[0]
     ).reset_index()
@@ -105,8 +119,9 @@ def generar_tabla_centros_costos(df_raw, col_cc_real, col_cat1_real, col_fecha_r
     
     prev_col = None
     for i, col in enumerate(months):
+        col_formateado = formatear_mes_texto(col)
         if i == 0:
-            combined_df[col] = pivot_df[col].apply(lambda x: f"{x:,.2f}")
+            combined_df[col_formateado] = pivot_df[col].apply(lambda x: f"{x:,.2f}")
         else:
             old_val = pivot_df[prev_col]
             new_val = pivot_df[col]
@@ -127,7 +142,7 @@ def generar_tabla_centros_costos(df_raw, col_cc_real, col_cat1_real, col_fecha_r
                     cell_contents.append(f"{val_str} ({p:.1f}% 🔴)")
                 else:
                     cell_contents.append(f"{val_str} (0.0% ➖)")
-            combined_df[col] = cell_contents
+            combined_df[col_formateado] = cell_contents
         prev_col = col
 
     combined_df['TOTAL GENERAL'] = pivot_df.sum(axis=1).apply(lambda x: f"{x:,.2f}")
@@ -222,12 +237,13 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. Tabla Resumen Principal Estática
-    q_tabla = f"""
+    # 2. PROCESAMIENTO PARA LA TABLA TRANSPUESTA POR MESES (Ambos analistas por mes)
+    df['mes_str'] = df[col_fecha_real].astype(str).str.slice(0, 7)
+    
+    q_tabla_base = f"""
         SELECT 
             SUBSTRING(CAST({col_fecha} AS VARCHAR), 1, 7) as mes_envio,
-            CAST({col_cat1} AS VARCHAR) as analista,
-            COUNT(DISTINCT CAST({col_cc} AS VARCHAR)) as total_centros_costo,
+            UPPER(TRIM(COALESCE(CAST({col_cat1} AS VARCHAR), 'DESCONOCIDO'))) as analista,
             COUNT(DISTINCT CAST({col_fact} AS VARCHAR)) as total_facturas,
             COALESCE(SUM(TRY_CAST({col_gln} AS DOUBLE)), 0) as total_gln,
             (COALESCE(SUM(TRY_CAST({col_desc_galon} AS DOUBLE)), 0) + COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0)) as total_descuento,
@@ -235,14 +251,41 @@ def procesar_y_renderizar_dashboard(file_path, filename):
             COALESCE(SUM(TRY_CAST({col_obsv} AS DOUBLE)), 0) as sum_obsv
         FROM tabla_excel
         GROUP BY mes_envio, analista
-        ORDER BY mes_envio ASC, analista ASC
     """
     try:
-        resumen_tabla = con.execute(q_tabla).fetchall()
+        df_resumen = con.execute(q_tabla_base.replace("tabla_excel", "tabla_excel")).fetchdf()
     except Exception:
-        resumen_tabla = []
+        df_resumen = pd.DataFrame(columns=['mes_envio', 'analista', 'total_facturas', 'total_gln', 'total_descuento', 'sum_desc_galon', 'sum_obsv'])
 
-    # Generar los datos para la nueva tabla de Centros de Costos
+    meses_originales = sorted(df_resumen['mes_envio'].dropna().unique().tolist()) if not df_resumen.empty else []
+    meses_columnas = [formatear_mes_texto(m) for m in meses_originales]
+    meses_map = dict(zip(meses_originales, meses_columnas))
+
+    metricas_config = [
+        ('Número de Facturas', 'total_facturas', '{:,.0f}'),
+        ('Total Galones', 'total_gln', '{:,.2f} GLN'),
+        ('Total Descuentos ($)', 'total_descuento', '$ {:,.2f}'),
+        ('Suma DESC X GALON ($)', 'sum_desc_galon', '$ {:,.2f}'),
+        ('Suma OBSERVACION ($)', 'sum_obsv', '$ {:,.2f}')
+    ]
+
+    analistas = sorted(df_resumen['analista'].dropna().unique().tolist()) if not df_resumen.empty else ["DICKSON", "FABIAN"]
+    resumen_por_mes = []
+
+    for nombre_metrica, col_name, formato in metricas_config:
+        for analista in analistas:
+            fila = {'METRICA': nombre_metrica, 'ANALISTA': str(analista)}
+            for m_orig in meses_originales:
+                m_formato = meses_map[m_orig]
+                subset = df_resumen[(df_resumen['mes_envio'] == m_orig) & (df_resumen['analista'] == analista)]
+                if not subset.empty and col_name in subset.columns:
+                    val = subset[col_name].values[0]
+                    fila[m_formato] = formato.format(val) if pd.notna(val) else formato.format(0)
+                else:
+                    fila[m_formato] = formato.format(0)
+            resumen_por_mes.append(fila)
+
+    # Generar los datos para la tabla de Centros de Costos
     try:
         cc_tabla_registros, cc_columnas = generar_tabla_centros_costos(df, col_cc_real, col_cat1_real, col_fecha_real, col_gln_real)
     except Exception:
@@ -286,9 +329,10 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     return render_template(
         "dashboard.html",
         kpis=kpis,
-        registros=resumen_tabla,
         filename=filename,
         raw_data_json=json.dumps(raw_data),
+        meses_columnas=meses_columnas,
+        resumen_por_mes=resumen_por_mes,
         cc_tabla_registros=cc_tabla_registros,
         cc_columnas=cc_columnas
     )
