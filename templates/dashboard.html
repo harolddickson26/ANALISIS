@@ -116,7 +116,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button class="btn btn-dark btn-sm w-15 py-2 fw-semibold" onclick="resetFiltros()">Limpiar Filtros</button>
+                    <button class="btn btn-dark btn-sm w-100 py-2 fw-semibold" onclick="resetFiltros()">Limpiar Filtros</button>
                 </div>
             </div>
         </div>
@@ -440,6 +440,31 @@
         const COLOR_FABIAN  = '#F43F5E';
         const PALETA_NEUTRA = ['#0F172A', '#3B82F6', '#64748B', '#0EA5E9', '#6366F1', '#F59E0B', '#10B981', '#EC4899'];
         
+        // Objeto mapa para formatear YYYY-MM a "NombreMes Año"
+        const NOMBRES_MESES = {
+            "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abryl",
+            "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+            "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+        };
+
+        function formatearFechaTexto(val) {
+            if (!val || typeof val !== 'string') return val;
+            const partes = val.split('-');
+            if (partes.length >= 2) {
+                const ano = partes[0];
+                let mesNum = partes[1];
+                const mesTextos = {
+                    "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+                    "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+                    "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+                };
+                if (mesTextos[mesNum]) {
+                    return `${mesTextos[mesNum]} ${ano}`;
+                }
+            }
+            return val;
+        }
+
         window.onload = function() {
             init();
         };
@@ -451,17 +476,23 @@
         }
 
         function poblarSelects() {
-            const meses = [...new Set(rawData.map(d => d.mes))].sort();
-            const ccs = [...new Set(rawData.map(d => d.cc))].sort();
-            const prods = [...new Set(rawData.map(d => d.producto))].sort();
+            const mesesUnicos = [...new Set(rawData.map(d => d.mes))].filter(Boolean).sort();
+            const ccs = [...new Set(rawData.map(d => d.cc))].filter(Boolean).sort();
+            const prods = [...new Set(rawData.map(d => d.producto))].filter(Boolean).sort();
             
             const selMes = document.getElementById("filterMes");
-            meses.forEach(m => selMes.add(new Option(m, m)));
+            selMes.innerHTML = '<option value="TODOS">Todos los Meses</option>';
+            mesesUnicos.forEach(m => {
+                const textoLegible = formatearFechaTexto(m);
+                selMes.add(new Option(textoLegible, m));
+            });
             
             const selCC = document.getElementById("filterCC");
+            selCC.innerHTML = '<option value="TODOS">Todos los Centros de Costos</option>';
             ccs.forEach(c => selCC.add(new Option(c, c)));
             
             const selProd = document.getElementById("filterProd");
+            selProd.innerHTML = '<option value="TODOS">Todos los Productos</option>';
             prods.forEach(p => selProd.add(new Option(p, p)));
         }
 
@@ -559,9 +590,10 @@
             } else {
                 keys.forEach(k => {
                     const r = agrupado[k];
+                    const mesFormateado = formatearFechaTexto(r.mes);
                     tbody.innerHTML += `
                         <tr>
-                            <td>${r.mes}</td>
+                            <td>${mesFormateado}</td>
                             <td class="fw-semibold">${r.analista}</td>
                             <td class="text-center fw-bold text-secondary">${r.ccs.size}</td>
                             <td class="text-center fw-bold text-primary">${r.facts.size}</td>
@@ -732,17 +764,18 @@
             chartVolumen.update();
             document.getElementById("insightVolumen").innerHTML = `💡 <strong>Análisis:</strong> DICKSON suma <strong>${glnDickson.toLocaleString()}</strong> GLN vs FABIÁN <strong>${glnFabian.toLocaleString()}</strong> GLN.`;
             
-            let meses = [...new Set(datos.map(d => d.mes))].sort();
-            let evolD = meses.map(m => datos.filter(d => d.mes === m && (d.analista || '').toUpperCase().includes("DICKSON")).reduce((a,b) => a + b.gln, 0));
-            let evolF = meses.map(m => datos.filter(d => d.mes === m && ((d.analista || '').toUpperCase().includes("FABIAN") || (d.analista || '').toUpperCase().includes("FABIÁN"))).reduce((a,b) => a + b.gln, 0));
+            let mesesOriginales = [...new Set(datos.map(d => d.mes))].sort();
+            let mesesLegibles = mesesOriginales.map(m => formatearFechaTexto(m));
+            let evolD = mesesOriginales.map(m => datos.filter(d => d.mes === m && (d.analista || '').toUpperCase().includes("DICKSON")).reduce((a,b) => a + b.gln, 0));
+            let evolF = mesesOriginales.map(m => datos.filter(d => d.mes === m && ((d.analista || '').toUpperCase().includes("FABIAN") || (d.analista || '').toUpperCase().includes("FABIÁN"))).reduce((a,b) => a + b.gln, 0));
             
-            chartEvolucion.data.labels = meses;
+            chartEvolucion.data.labels = mesesLegibles;
             chartEvolucion.data.datasets = [
                 { label: 'DICKSON', data: evolD, borderColor: COLOR_DICKSON, backgroundColor: COLOR_DICKSON, borderWidth: 3, fill: false },
                 { label: 'FABIÁN', data: evolF, borderColor: COLOR_FABIAN, backgroundColor: COLOR_FABIAN, borderWidth: 3, fill: false }
             ];
             chartEvolucion.update();
-            document.getElementById("insightEvolucion").innerHTML = `💡 <strong>Análisis:</strong> Tendencia distribuida en <strong>${meses.length}</strong> período(s).`;
+            document.getElementById("insightEvolucion").innerHTML = `💡 <strong>Análisis:</strong> Tendencia distribuida en <strong>${mesesOriginales.length}</strong> período(s).`;
             
             let efD = glnDickson > 0 ? (descDickson / glnDickson) : 0;
             let efF = glnFabian > 0 ? (descFabian / glnFabian) : 0;
