@@ -237,7 +237,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     except Exception:
         pass
 
-    # 2. PROCESAMIENTO PARA LA TABLA TRANSPUESTA POR MESES (Ambos analistas por mes)
+    # 2. PROCESAMIENTO PARA LA TABLA TRANSPUESTA (Analista agrupado primero)
     df['mes_str'] = df[col_fecha_real].astype(str).str.slice(0, 7)
     
     q_tabla_base = f"""
@@ -253,7 +253,7 @@ def procesar_y_renderizar_dashboard(file_path, filename):
         GROUP BY mes_envio, analista
     """
     try:
-        df_resumen = con.execute(q_tabla_base.replace("tabla_excel", "tabla_excel")).fetchdf()
+        df_resumen = con.execute(q_tabla_base).fetchdf()
     except Exception:
         df_resumen = pd.DataFrame(columns=['mes_envio', 'analista', 'total_facturas', 'total_gln', 'total_descuento', 'sum_desc_galon', 'sum_obsv'])
 
@@ -272,9 +272,10 @@ def procesar_y_renderizar_dashboard(file_path, filename):
     analistas = sorted(df_resumen['analista'].dropna().unique().tolist()) if not df_resumen.empty else ["DICKSON", "FABIAN"]
     resumen_por_mes = []
 
-    for nombre_metrica, col_name, formato in metricas_config:
-        for analista in analistas:
-            fila = {'METRICA': nombre_metrica, 'ANALISTA': str(analista)}
+    # Bucle ordenado por Analista primero para agrupar las métricas debajo de cada uno
+    for analista in analistas:
+        for nombre_metrica, col_name, formato in metricas_config:
+            fila = {'ANALISTA': str(analista), 'METRICA': nombre_metrica}
             for m_orig in meses_originales:
                 m_formato = meses_map[m_orig]
                 subset = df_resumen[(df_resumen['mes_envio'] == m_orig) & (df_resumen['analista'] == analista)]
