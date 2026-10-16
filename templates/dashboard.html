@@ -21,7 +21,6 @@
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             color: var(--text-main);
         }
-        /* --- CONTENEDORES Y TARJETAS PREMIUM --- */
         .card-custom { 
             border: 1px solid var(--border-subtle); 
             border-radius: 14px; 
@@ -32,7 +31,6 @@
         .card-custom:hover {
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.07), 0 8px 10px -6px rgba(0,0,0,0.04);
         }
-        /* --- TABLAS PERSONALIZADAS --- */
         .table-custom { width: 100%; margin-bottom: 0; border-collapse: separate; border-spacing: 0; }
         .table-custom th { background-color: #0F172A; color: #ffffff; font-weight: 600; padding: 14px 16px; border: none; font-size: 0.85rem; letter-spacing: 0.03em; }
         .table-custom th:first-child { border-top-left-radius: 8px; }
@@ -42,9 +40,8 @@
         .table-custom tfoot tr { background-color: #F8FAFC; font-weight: bold; border-top: 2px solid #0F172A; }
         .table-custom tfoot td { border: none; padding: 14px 16px; }
         
-        /* Paleta Oficial Estricta & Estilos de Analistas */
-        .color-dickson { color: #059669 !important; } /* VERDE ESMERALDA VIVO */
-        .color-fabian { color: #E11D48 !important; }  /* ROJO VIVO */
+        .color-dickson { color: #059669 !important; }
+        .color-fabian { color: #E11D48 !important; }
         .border-dickson { border-left: 6px solid #10B981 !important; border-top: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
         .border-fabian { border-left: 6px solid #F43F5E !important; border-top: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
         
@@ -90,7 +87,7 @@
             </div>
         </header>
 
-        <!-- BLOQUE 4: FILTROS INTERACTIVOS (Slicers Clave) -->
+        <!-- BLOQUE 4: FILTROS INTERACTIVOS -->
         <div class="card card-custom p-4 mb-4 bg-white">
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
@@ -117,9 +114,8 @@
             </div>
         </div>
 
-        <!-- BLOQUE 1: TARJETAS DE KPIS (Resumen Ejecutivo Superior) -->
+        <!-- BLOQUE 1: TARJETAS DE KPIS -->
         <div class="row g-3 mb-4">
-            <!-- DICKSON (VERDE) -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white border-dickson">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -146,7 +142,6 @@
                     </div>
                 </div>
             </div>
-            <!-- FABIAN (ROJO) -->
             <div class="col-md-6">
                 <div class="card card-custom p-4 bg-white border-fabian">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -231,15 +226,15 @@
             </div>
         </div>
 
-        <!-- TABLA TRANSPUESTA: MESES HORIZONTALES Y AMBOS ANALISTAS VERTICALES -->
+        <!-- TABLA TRANSPUESTA: ANALISTA PRINCIPAL Y MÉTRICAS VERTICALES -->
         <div class="card card-custom p-4 mb-4 bg-white">
-            <h5 class="fw-bold mb-3 text-dark">📋 Resumen General Estático (Meses con ambos Analistas)</h5>
+            <h5 class="fw-bold mb-3 text-dark">📋 Resumen General Estático (Agrupado por Analista)</h5>
             <div class="table-responsive">
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th>Métrica</th>
                             <th>Analista</th>
+                            <th>Métrica</th>
                             {% for mes in meses_columnas %}
                                 <th class="text-end">{{ mes }}</th>
                             {% endfor %}
@@ -248,8 +243,8 @@
                     <tbody>
                         {% for row in resumen_por_mes %}
                         <tr>
-                            <td class="fw-semibold text-secondary">{{ row['METRICA'] }}</td>
                             <td class="fw-bold text-dark">{{ row['ANALISTA'] }}</td>
+                            <td class="fw-semibold text-secondary">{{ row['METRICA'] }}</td>
                             {% for mes in meses_columnas %}
                                 <td class="text-end">{{ row[mes] }}</td>
                             {% endfor %}
@@ -324,7 +319,7 @@
             </div>
         </div>
 
-        <!-- BLOQUE 3: SEGMENTACIÓN Y DISTRIBUCIÓN OPERATIVA CON TABLA DE PRODUCTOS -->
+        <!-- BLOQUE 3: SEGMENTACIÓN Y DISTRIBUCIÓN OPERATIVA -->
         <div class="row g-4 mb-4">
             <div class="col-md-6">
                 <div class="card card-custom p-3 bg-white">
@@ -380,7 +375,7 @@
         </div>
     </div>
 
-    <!-- SCRIPTS COMPLETOS DE ANÁLISIS E INTERACTIVIDAD -->
+    <!-- SCRIPTS DE ANÁLISIS E INTERACTIVIDAD -->
     <script>
         Chart.register(ChartDataLabels);
         const rawData = {{ raw_data_json | safe }};
@@ -666,6 +661,7 @@
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
         }
+
         function actualizarGraficos(datos) {
             let glnDickson = 0, glnFabian = 0;
             let descDickson = 0, descFabian = 0;
@@ -760,12 +756,8 @@
                     listaProds.forEach(item => {
                         tbodyProds.innerHTML += `
                             <tr>
-                                <td class="text-start fw-semibold text-truncate" style="max-width: 110px;" title="${item.nombre}">
-                                    ${item.nombre}
-                                </td>
-                                <td class="text-end fw-bold text-primary">
-                                    ${item.porcentaje.toFixed(1)}%
-                                </td>
+                                <td class="text-start fw-semibold text-truncate" style="max-width: 110px;" title="${item.nombre}">${item.nombre}</td>
+                                <td class="text-end fw-bold text-primary">${item.porcentaje.toFixed(1)}%</td>
                             </tr>
                         `;
                     });
@@ -802,9 +794,7 @@
                 return promB - promA;
             }).slice(0, 10);
             
-            let dataDctoCCs = sortedDctoCCs.map(c => 
-                ccsDcto[c].totalGln > 0 ? (ccsDcto[c].totalDesc / ccsDcto[c].totalGln) : 0
-            );
+            let dataDctoCCs = sortedDctoCCs.map(c => ccsDcto[c].totalGln > 0 ? (ccsDcto[c].totalDesc / ccsDcto[c].totalGln) : 0);
             
             chartDctoPonderadoEDS.data.labels = sortedDctoCCs;
             chartDctoPonderadoEDS.data.datasets[0].data = dataDctoCCs;
@@ -814,6 +804,7 @@
             const topEDSV = dataDctoCCs[0] ? dataDctoCCs[0].toFixed(2) : '0.00';
             document.getElementById("insightDctoPonderadoEDS").innerHTML = `💡 <strong>Análisis:</strong> Mayor dcto ponderado en <strong>${topEDS}</strong> ($${topEDSV}/GLN).`;
         }
+
         function exportarHTML() {
             const contenido = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
             const blob = new Blob([contenido], { type: "text/html;charset=utf-8" });
